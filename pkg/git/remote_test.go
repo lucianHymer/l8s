@@ -442,3 +442,127 @@ func TestIsGitRepository(t *testing.T) {
 		assert.False(t, isRepo)
 	})
 }
+
+func TestChangeUpstreamToOrigin(t *testing.T) {
+	tests := []struct {
+		name          string
+		branch        string
+		currentRemote string
+		hasOrigin     bool
+		wantErr       bool
+		errContains   string
+	}{
+		{
+			name:          "change upstream from container to origin",
+			branch:        "main",
+			currentRemote: "myproject",
+			hasOrigin:     true,
+			wantErr:       false,
+		},
+		{
+			name:          "no origin remote exists",
+			branch:        "main",
+			currentRemote: "myproject",
+			hasOrigin:     false,
+			wantErr:       true,
+			errContains:   "origin remote not found",
+		},
+		{
+			name:          "branch not tracked",
+			branch:        "untracked",
+			currentRemote: "",
+			hasOrigin:     true,
+			wantErr:       false, // Should succeed but do nothing
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repoPath := createTestRepo(t)
+			
+			// Add origin remote if needed
+			if tt.hasOrigin {
+				cmd := exec.Command("git", "remote", "add", "origin", "https://github.com/user/repo.git")
+				cmd.Dir = repoPath
+				err := cmd.Run()
+				require.NoError(t, err)
+			}
+			
+			// Add current remote and set upstream
+			if tt.currentRemote != "" {
+				cmd := exec.Command("git", "remote", "add", tt.currentRemote, "ssh://dev@localhost:2200/workspace/project")
+				cmd.Dir = repoPath
+				err := cmd.Run()
+				require.NoError(t, err)
+				
+				// Set upstream to current remote
+				err = SetUpstream(repoPath, tt.branch, tt.currentRemote)
+				require.NoError(t, err)
+			}
+			
+			// Change upstream back to origin
+			err := ChangeUpstreamToOrigin(repoPath, tt.branch)
+			
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				require.NoError(t, err)
+				
+				// Verify upstream is now origin (if it was tracked)
+				if tt.currentRemote != "" {
+					cmd := exec.Command("git", "config", fmt.Sprintf("branch.%s.remote", tt.branch))
+					cmd.Dir = repoPath
+					output, err := cmd.Output()
+					require.NoError(t, err)
+					assert.Contains(t, string(output), "origin")
+				}
+			}
+		})
+	}
+}
+
+func TestGenerateSSHRemoteURL(t *testing.T) {
+	tests := []struct {
+		name           string
+		containerName  string
+		sshPort        int
+		containerUser  string
+		repoPath       string
+		expected       string
+	}{
+		{
+			name:          "standard SSH remote URL",
+			containerName: "myproject",
+			sshPort:       2200,
+			containerUser: "dev",
+			repoPath:      "/workspace/project",
+			expected:      "dev-myproject:/workspace/project",
+		},
+		{
+			name:          "custom user",
+			containerName: "test",
+			sshPort:       2201,
+			containerUser: "lucian",
+			repoPath:      "/workspace/myapp",
+			expected:      "dev-test:/workspace/myapp",
+		},
+		{
+			name:          "non-standard port",
+			containerName: "app",
+			sshPort:       3000,
+			containerUser: "dev",
+			repoPath:      "/workspace/app",
+			expected:      "dev-app:/workspace/app",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url := GenerateSSHRemoteURL(tt.containerName, tt.sshPort, tt.containerUser, tt.repoPath)
+			assert.Equal(t, tt.expected, url)
+		})
+	}
+}

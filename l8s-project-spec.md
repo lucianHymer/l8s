@@ -1,10 +1,10 @@
-# l8s (Lebowskis) - Project Specification
+# L8s (Lebowskis) - Project Specification
 
 > "The container management system that really ties the room together"
 
 ## Overview
 
-`l8s` is a Podman-based development container management tool that creates isolated, SSH-accessible development environments. Each container is a fully-featured Linux environment with development tools, accessible via SSH using key-based authentication.
+`l8s` (or "Lebowskis") is a Podman-based development container management tool that creates isolated, SSH-accessible development environments. Each container is a fully-featured Linux environment with development tools, accessible via SSH using key-based authentication.
 
 ## Core Philosophy
 
@@ -201,8 +201,8 @@ base_image: "localhost/l8s-fedora:latest"
 # Container prefix
 container_prefix: "dev"
 
-# SSH key location
-ssh_public_key: "~/.ssh/id_ed25519.pub"
+# SSH key location (auto-detected if not specified)
+ssh_public_key: ""  # Empty means auto-detect
 
 # Container username (IMPORTANT: configurable!)
 container_user: "dev"  # Can be set to "lucian" or any preferred username
@@ -236,7 +236,7 @@ l8s ssh myproject
 - **Invalid arguments**: "You're out of your element! Usage: l8s create <name> <git-url>"
 - **Container exists**: "Container 'name' already exists"
 - **Container not found**: "Container 'name' not found"
-- **SSH key missing**: "No SSH key found at ~/.ssh/id_ed25519.pub"
+- **SSH key missing**: "No SSH public key found in ~/.ssh/"
 - **Podman not found**: "Podman is not installed"
 - **Build failed**: "Container build failed: [error details]"
 

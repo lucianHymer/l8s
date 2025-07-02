@@ -9,6 +9,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Container represents a development container
+type Container struct {
+	Name     string
+	Status   string
+	SSHPort  int
+	GitURL   string
+	Branch   string
+	Created  string
+	Volumes  map[string]string
+	Labels   map[string]string // Container labels for metadata tracking
+}
+
+// ContainerConfig holds configuration for creating a container
+type ContainerConfig struct {
+	Name         string
+	Image        string
+	Hostname     string
+	SSHPort      int
+	SSHPublicKey string
+	GitURL       string
+	Branch       string
+	User         string
+	Volumes      map[string]string
+	Labels       map[string]string // Labels for metadata tracking
+}
+
 // MockPodmanClient mocks the Podman client interface
 type MockPodmanClient struct {
 	mock.Mock
@@ -63,6 +89,16 @@ func (m *MockPodmanClient) FindAvailablePort(startPort int) (int, error) {
 	return args.Int(0), args.Error(1)
 }
 
+func (m *MockPodmanClient) ExecContainer(ctx context.Context, name string, cmd []string) error {
+	args := m.Called(ctx, name, cmd)
+	return args.Error(0)
+}
+
+func (m *MockPodmanClient) CopyToContainer(ctx context.Context, name string, src, dst string) error {
+	args := m.Called(ctx, name, src, dst)
+	return args.Error(0)
+}
+
 func TestManager_CreateContainer(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -84,16 +120,28 @@ func TestManager_CreateContainer(t *testing.T) {
 				m.On("ContainerExists", mock.Anything, "dev-myproject").Return(false, nil)
 				m.On("FindAvailablePort", 2200).Return(2200, nil)
 				m.On("CreateContainer", mock.Anything, mock.MatchedBy(func(config ContainerConfig) bool {
+					// Verify container config including labels
 					return config.Name == "dev-myproject" &&
 						config.Hostname == "myproject" &&
 						config.SSHPort == 2200 &&
-						config.Image == "localhost/l8s-fedora:latest"
+						config.Image == "localhost/l8s-fedora:latest" &&
+						// Verify labels for metadata tracking
+						config.Labels["l8s.managed"] == "true" &&
+						config.Labels["l8s.git.url"] == "https://github.com/user/repo.git" &&
+						config.Labels["l8s.git.branch"] == "main" &&
+						config.Labels["l8s.ssh.port"] == "2200"
 				})).Return(&Container{
 					Name:     "dev-myproject",
 					Status:   "created",
 					SSHPort:  2200,
 					GitURL:   "https://github.com/user/repo.git",
 					Branch:   "main",
+					Labels: map[string]string{
+						"l8s.managed":   "true",
+						"l8s.git.url":   "https://github.com/user/repo.git",
+						"l8s.git.branch": "main",
+						"l8s.ssh.port":  "2200",
+					},
 				}, nil)
 				m.On("StartContainer", mock.Anything, "dev-myproject").Return(nil)
 			},
@@ -189,6 +237,12 @@ func TestManager_ListContainers(t *testing.T) {
 			GitURL:   "https://github.com/user/project1.git",
 			Branch:   "main",
 			Created:  "2024-01-01T10:00:00Z",
+			Labels: map[string]string{
+				"l8s.managed":   "true",
+				"l8s.git.url":   "https://github.com/user/project1.git",
+				"l8s.git.branch": "main",
+				"l8s.ssh.port":  "2200",
+			},
 		},
 		{
 			Name:     "dev-project2",
@@ -197,6 +251,12 @@ func TestManager_ListContainers(t *testing.T) {
 			GitURL:   "https://github.com/user/project2.git",
 			Branch:   "develop",
 			Created:  "2024-01-02T10:00:00Z",
+			Labels: map[string]string{
+				"l8s.managed":   "true",
+				"l8s.git.url":   "https://github.com/user/project2.git",
+				"l8s.git.branch": "develop",
+				"l8s.ssh.port":  "2201",
+			},
 		},
 	}
 	
@@ -297,6 +357,12 @@ func TestManager_GetContainerInfo(t *testing.T) {
 			"home":      "dev-myproject-home",
 			"workspace": "dev-myproject-workspace",
 		},
+		Labels: map[string]string{
+			"l8s.managed":   "true",
+			"l8s.git.url":   "https://github.com/user/repo.git",
+			"l8s.git.branch": "main",
+			"l8s.ssh.port":  "2200",
+		},
 	}
 	
 	mockClient.On("GetContainerInfo", mock.Anything, "dev-myproject").Return(expectedContainer, nil)
@@ -366,4 +432,58 @@ func TestValidateContainerName(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestManager_ListContainersWithLabels(t *testing.T) {
+	mockClient := new(MockPodmanClient)
+	
+	// Simulate mix of l8s and non-l8s containers
+	allContainers := []*Container{
+		{
+			Name:    "dev-project1",
+			Status:  "running",
+			SSHPort: 2200,
+			Labels: map[string]string{
+				"l8s.managed":   "true",
+				"l8s.git.url":   "https://github.com/user/project1.git",
+				"l8s.git.branch": "main",
+				"l8s.ssh.port":  "2200",
+			},
+		},
+		{
+			Name:   "some-other-container",
+			Status: "running",
+			Labels: map[string]string{
+				"other": "label",
+			},
+		},
+		{
+			Name:    "dev-project2",
+			Status:  "stopped",
+			SSHPort: 2201,
+			Labels: map[string]string{
+				"l8s.managed":   "true",
+				"l8s.git.url":   "https://github.com/user/project2.git",
+				"l8s.git.branch": "develop",
+				"l8s.ssh.port":  "2201",
+			},
+		},
+	}
+	
+	mockClient.On("ListContainers", mock.Anything).Return(allContainers, nil)
+	
+	manager := NewManager(mockClient, Config{
+		ContainerPrefix: "dev",
+	})
+	
+	containers, err := manager.ListContainers(context.Background())
+	
+	require.NoError(t, err)
+	// Should filter to only l8s managed containers
+	assert.Len(t, containers, 2)
+	for _, c := range containers {
+		assert.Equal(t, "true", c.Labels["l8s.managed"])
+	}
+	
+	mockClient.AssertExpectations(t)
 }

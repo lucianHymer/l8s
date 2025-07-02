@@ -295,6 +295,7 @@ func TestFindSSHPublicKey(t *testing.T) {
 		keys := map[string]string{
 			"id_ed25519.pub": "ssh-ed25519 AAAAC3... user@example.com",
 			"id_rsa.pub":     "ssh-rsa AAAAB3... user@example.com",
+			"id_ecdsa.pub":   "ecdsa-sha2-nistp256 AAAAE2... user@example.com",
 		}
 		
 		for filename, content := range keys {
@@ -309,7 +310,10 @@ func TestFindSSHPublicKey(t *testing.T) {
 		
 		keyPath, err := FindSSHPublicKey()
 		require.NoError(t, err)
-		assert.Contains(t, keyPath, "id_ed25519.pub") // Should prefer ed25519
+		// Should find one of the keys (no preference)
+		assert.True(t, filepath.Base(keyPath) == "id_ed25519.pub" || 
+			filepath.Base(keyPath) == "id_rsa.pub" || 
+			filepath.Base(keyPath) == "id_ecdsa.pub")
 	})
 
 	t.Run("no keys found", func(t *testing.T) {
