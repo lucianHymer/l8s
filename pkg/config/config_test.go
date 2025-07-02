@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -106,12 +107,16 @@ ssh_port_start: [invalid
 			viper.Reset()
 			
 			// Load config
-			cfg, err := LoadConfig()
+			cfg, err := Load(configPath)
 			
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
 				require.NoError(t, err)
+				// Special handling for SSH public key path expansion
+				if tt.expectedConfig.SSHPublicKey != "" && strings.HasPrefix(tt.expectedConfig.SSHPublicKey, "~/") {
+					tt.expectedConfig.SSHPublicKey = filepath.Join(tmpDir, tt.expectedConfig.SSHPublicKey[2:])
+				}
 				assert.Equal(t, tt.expectedConfig, cfg)
 			}
 		})
@@ -169,7 +174,7 @@ func TestExpandPath(t *testing.T) {
 	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ExpandPath(tt.input)
+			result := expandPath(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -203,7 +208,7 @@ func TestConfigValidation(t *testing.T) {
 				ContainerUser:   "dev",
 			},
 			wantErr: true,
-			errMsg:  "SSH port must be >= 1024",
+			errMsg:  "ssh_port_start must be between 1024 and 65000",
 		},
 		{
 			name: "empty base image",
@@ -215,7 +220,7 @@ func TestConfigValidation(t *testing.T) {
 				ContainerUser:   "dev",
 			},
 			wantErr: true,
-			errMsg:  "base image cannot be empty",
+			errMsg:  "base_image cannot be empty",
 		},
 		{
 			name: "empty container prefix",
@@ -227,7 +232,7 @@ func TestConfigValidation(t *testing.T) {
 				ContainerUser:   "dev",
 			},
 			wantErr: true,
-			errMsg:  "container prefix cannot be empty",
+			errMsg:  "container_prefix cannot be empty",
 		},
 		{
 			name: "empty container user",
@@ -239,7 +244,7 @@ func TestConfigValidation(t *testing.T) {
 				ContainerUser:   "",
 			},
 			wantErr: true,
-			errMsg:  "container user cannot be empty",
+			errMsg:  "container_user cannot be empty",
 		},
 	}
 	

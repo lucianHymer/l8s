@@ -9,32 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Container represents a development container
-type Container struct {
-	Name     string
-	Status   string
-	SSHPort  int
-	GitURL   string
-	Branch   string
-	Created  string
-	Volumes  map[string]string
-	Labels   map[string]string // Container labels for metadata tracking
-}
-
-// ContainerConfig holds configuration for creating a container
-type ContainerConfig struct {
-	Name         string
-	Image        string
-	Hostname     string
-	SSHPort      int
-	SSHPublicKey string
-	GitURL       string
-	Branch       string
-	User         string
-	Volumes      map[string]string
-	Labels       map[string]string // Labels for metadata tracking
-}
-
 // MockPodmanClient mocks the Podman client interface
 type MockPodmanClient struct {
 	mock.Mock

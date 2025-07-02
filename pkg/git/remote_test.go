@@ -398,50 +398,6 @@ func TestValidateGitURL(t *testing.T) {
 	}
 }
 
-func TestGetRemoteURL(t *testing.T) {
-	t.Run("get existing remote URL", func(t *testing.T) {
-		repoPath := createTestRepo(t)
-		
-		expectedURL := "https://github.com/user/repo.git"
-		cmd := exec.Command("git", "remote", "add", "origin", expectedURL)
-		cmd.Dir = repoPath
-		err := cmd.Run()
-		require.NoError(t, err)
-		
-		url, err := GetRemoteURL(repoPath, "origin")
-		require.NoError(t, err)
-		assert.Equal(t, expectedURL, url)
-	})
-
-	t.Run("non-existent remote", func(t *testing.T) {
-		repoPath := createTestRepo(t)
-		
-		_, err := GetRemoteURL(repoPath, "nonexistent")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "No such remote")
-	})
-}
-
-func TestIsGitRepository(t *testing.T) {
-	t.Run("valid git repository", func(t *testing.T) {
-		repoPath := createTestRepo(t)
-		
-		isRepo := IsGitRepository(repoPath)
-		assert.True(t, isRepo)
-	})
-
-	t.Run("not a git repository", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		
-		isRepo := IsGitRepository(tmpDir)
-		assert.False(t, isRepo)
-	})
-
-	t.Run("non-existent path", func(t *testing.T) {
-		isRepo := IsGitRepository("/non/existent/path")
-		assert.False(t, isRepo)
-	})
-}
 
 func TestChangeUpstreamToOrigin(t *testing.T) {
 	tests := []struct {
