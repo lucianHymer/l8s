@@ -4,26 +4,27 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/l8s/l8s/pkg/config"
-	"github.com/l8s/l8s/pkg/container"
+	"github.com/l8s/l8s/pkg/cli"
 	"github.com/l8s/l8s/pkg/ssh"
 	"github.com/spf13/cobra"
 )
 
-// CreateCmd creates the create command
-func CreateCmd() *cobra.Command {
+// CreateCmd creates the create command with a container manager dependency
+func CreateCmd(containerMgr cli.ContainerManager) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <name> <git-url> [branch]",
 		Short: "Create a new development container",
 		Long:  `Creates a new development container with SSH access and clones the specified git repository.`,
 		Args:  cobra.RangeArgs(2, 3),
-		RunE:  runCreate,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCreateWithManager(cmd, args, containerMgr)
+		},
 	}
 
 	return cmd
 }
 
-func runCreate(cmd *cobra.Command, args []string) error {
+func runCreateWithManager(cmd *cobra.Command, args []string, containerMgr cli.ContainerManager) error {
 	name := args[0]
 	gitURL := args[1]
 	branch := "main"
@@ -31,28 +32,11 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		branch = args[2]
 	}
 
-	// Load configuration
-	cfg, err := config.Load(config.GetConfigPath())
+	// This function will be called from the factory which already has config loaded
+	// For now, we'll use a temporary solution to get the SSH key
+	sshKey, err := ssh.FindSSHPublicKey()
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
-	}
-
-	// Find SSH key
-	sshKey := cfg.SSHPublicKey
-	if sshKey == "" {
-		// Auto-detect SSH key
-		key, err := ssh.FindSSHPublicKey()
-		if err != nil {
-			return fmt.Errorf("no SSH public key found in ~/.ssh/")
-		}
-		sshKey = key
-	} else {
-		// Read specified SSH key
-		key, err := ssh.ReadPublicKey(sshKey)
-		if err != nil {
-			return fmt.Errorf("failed to read SSH public key: %w", err)
-		}
-		sshKey = key
+		return fmt.Errorf("no SSH public key found in ~/.ssh/")
 	}
 
 	// Validate SSH key
@@ -60,26 +44,11 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid SSH public key: %w", err)
 	}
 
-	// Create Podman client
-	podmanClient, err := container.NewPodmanClient()
-	if err != nil {
-		return fmt.Errorf("failed to create Podman client: %w", err)
-	}
-
-	// Create container manager
-	managerConfig := container.Config{
-		SSHPortStart:    cfg.SSHPortStart,
-		BaseImage:       cfg.BaseImage,
-		ContainerPrefix: cfg.ContainerPrefix,
-		ContainerUser:   cfg.ContainerUser,
-	}
-	manager := container.NewManager(podmanClient, managerConfig)
-
 	// Create container
-	fmt.Printf("🎳 Creating container: %s-%s\n", cfg.ContainerPrefix, name)
+	fmt.Printf("🎳 Creating container: dev-%s\n", name)
 	
 	ctx := context.Background()
-	cont, err := manager.CreateContainer(ctx, name, gitURL, branch, sshKey)
+	cont, err := containerMgr.CreateContainer(ctx, name, gitURL, branch, sshKey)
 	if err != nil {
 		return err
 	}
@@ -88,10 +57,10 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✓ SSH port: %d\n", cont.SSHPort)
 	fmt.Printf("✓ Repository cloned\n")
 	fmt.Printf("✓ SSH config entry added\n")
-	fmt.Printf("✓ Git remote '%s' added (%s-%s:/workspace/project)\n", name, cfg.ContainerPrefix, name)
+	fmt.Printf("✓ Git remote '%s' added (dev-%s:/workspace/project)\n", name, name)
 	fmt.Printf("\nConnection options:\n")
 	fmt.Printf("- l8s ssh %s\n", name)
-	fmt.Printf("- ssh %s-%s\n", cfg.ContainerPrefix, name)
+	fmt.Printf("- ssh dev-%s\n", name)
 	fmt.Printf("- git push %s\n", name)
 
 	return nil

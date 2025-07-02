@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -273,4 +274,43 @@ func validateContainerName(name string) error {
 	}
 
 	return nil
+}
+
+// SSHIntoContainer executes SSH into the container
+func (m *Manager) SSHIntoContainer(ctx context.Context, name string) error {
+	containerName := m.config.ContainerPrefix + "-" + name
+	
+	// Get container info
+	cont, err := m.client.GetContainerInfo(ctx, containerName)
+	if err != nil {
+		return fmt.Errorf("failed to get container info: %w", err)
+	}
+	
+	// Check if container is running
+	if cont.Status != "running" {
+		return fmt.Errorf("container '%s' is not running", name)
+	}
+	
+	// Execute SSH command
+	sshCmd := exec.Command("ssh", fmt.Sprintf("%s-%s", m.config.ContainerPrefix, name))
+	sshCmd.Stdin = os.Stdin
+	sshCmd.Stdout = os.Stdout
+	sshCmd.Stderr = os.Stderr
+	
+	return sshCmd.Run()
+}
+
+// BuildImage builds the container image
+func (m *Manager) BuildImage(ctx context.Context, containerfile string) error {
+	// Check if containerfile exists
+	if _, err := os.Stat(containerfile); err != nil {
+		return fmt.Errorf("containerfile not found: %w", err)
+	}
+	
+	// Build the image using podman build
+	buildCmd := exec.Command("podman", "build", "-f", containerfile, "-t", m.config.BaseImage, ".")
+	buildCmd.Stdout = os.Stdout
+	buildCmd.Stderr = os.Stderr
+	
+	return buildCmd.Run()
 }

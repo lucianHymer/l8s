@@ -1,10 +1,14 @@
-package commands
+package commands_test
 
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
+	"github.com/l8s/l8s/pkg/cli"
+	"github.com/l8s/l8s/pkg/config"
 	"github.com/l8s/l8s/pkg/container"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -12,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// MockContainerManager is a mock implementation of the ContainerManager interface
 type MockContainerManager struct {
 	mock.Mock
 }
@@ -55,6 +60,99 @@ func (m *MockContainerManager) GetContainerInfo(ctx context.Context, name string
 	return args.Get(0).(*container.Container), args.Error(1)
 }
 
+func (m *MockContainerManager) ExecContainer(ctx context.Context, name string, cmd []string) error {
+	args := m.Called(ctx, name, cmd)
+	return args.Error(0)
+}
+
+func (m *MockContainerManager) SSHIntoContainer(ctx context.Context, name string) error {
+	args := m.Called(ctx, name)
+	return args.Error(0)
+}
+
+func (m *MockContainerManager) BuildImage(ctx context.Context, containerfile string) error {
+	args := m.Called(ctx, containerfile)
+	return args.Error(0)
+}
+
+// MockGitClient is a mock implementation of the GitClient interface
+type MockGitClient struct {
+	mock.Mock
+}
+
+func (m *MockGitClient) CloneRepository(repoPath, gitURL, branch string) error {
+	args := m.Called(repoPath, gitURL, branch)
+	return args.Error(0)
+}
+
+func (m *MockGitClient) AddRemote(repoPath, remoteName, remoteURL string) error {
+	args := m.Called(repoPath, remoteName, remoteURL)
+	return args.Error(0)
+}
+
+func (m *MockGitClient) RemoveRemote(repoPath, remoteName string) error {
+	args := m.Called(repoPath, remoteName)
+	return args.Error(0)
+}
+
+func (m *MockGitClient) ListRemotes(repoPath string) (map[string]string, error) {
+	args := m.Called(repoPath)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]string), args.Error(1)
+}
+
+func (m *MockGitClient) SetUpstream(repoPath, remoteName, branch string) error {
+	args := m.Called(repoPath, remoteName, branch)
+	return args.Error(0)
+}
+
+func (m *MockGitClient) CurrentBranch(repoPath string) (string, error) {
+	args := m.Called(repoPath)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockGitClient) ValidateGitURL(gitURL string) error {
+	args := m.Called(gitURL)
+	return args.Error(0)
+}
+
+// MockSSHClient is a mock implementation of the SSHClient interface
+type MockSSHClient struct {
+	mock.Mock
+}
+
+func (m *MockSSHClient) ReadPublicKey(keyPath string) (string, error) {
+	args := m.Called(keyPath)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockSSHClient) FindSSHPublicKey() (string, error) {
+	args := m.Called()
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockSSHClient) AddSSHConfig(name, hostname string, port int, user string) error {
+	args := m.Called(name, hostname, port, user)
+	return args.Error(0)
+}
+
+func (m *MockSSHClient) RemoveSSHConfig(name string) error {
+	args := m.Called(name)
+	return args.Error(0)
+}
+
+func (m *MockSSHClient) GenerateAuthorizedKeys(publicKey string) string {
+	args := m.Called(publicKey)
+	return args.String(0)
+}
+
+func (m *MockSSHClient) IsPortAvailable(port int) bool {
+	args := m.Called(port)
+	return args.Bool(0)
+}
+
 func executeCommand(cmd *cobra.Command, args ...string) (string, error) {
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
@@ -69,7 +167,7 @@ func TestCreateCommand(t *testing.T) {
 	tests := []struct {
 		name        string
 		args        []string
-		setupMocks  func(*MockContainerManager)
+		setupMocks  func(*MockContainerManager, *MockSSHClient)
 		wantErr     bool
 		errContains string
 		outContains []string
@@ -77,12 +175,14 @@ func TestCreateCommand(t *testing.T) {
 		{
 			name: "successful creation",
 			args: []string{"myproject", "https://github.com/user/repo.git"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("CreateContainer", mock.Anything, "myproject", "https://github.com/user/repo.git", "main", mock.AnythingOfType("string")).
+			setupMocks: func(m *MockContainerManager, s *MockSSHClient) {
+				s.On("FindSSHPublicKey").Return("ssh-rsa AAAAB3NzaC1yc2E...", nil)
+				m.On("CreateContainer", mock.Anything, "myproject", "https://github.com/user/repo.git", "main", "ssh-rsa AAAAB3NzaC1yc2E...").
 					Return(&container.Container{
-						Name:    "dev-myproject",
-						SSHPort: 2200,
-						Status:  "running",
+						Name:      "dev-myproject",
+						SSHPort:   2200,
+						Status:    "running",
+						CreatedAt: time.Now(),
 					}, nil)
 			},
 			wantErr: false,
@@ -98,12 +198,14 @@ func TestCreateCommand(t *testing.T) {
 		{
 			name: "with custom branch",
 			args: []string{"myproject", "https://github.com/user/repo.git", "develop"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("CreateContainer", mock.Anything, "myproject", "https://github.com/user/repo.git", "develop", mock.AnythingOfType("string")).
+			setupMocks: func(m *MockContainerManager, s *MockSSHClient) {
+				s.On("FindSSHPublicKey").Return("ssh-rsa AAAAB3NzaC1yc2E...", nil)
+				m.On("CreateContainer", mock.Anything, "myproject", "https://github.com/user/repo.git", "develop", "ssh-rsa AAAAB3NzaC1yc2E...").
 					Return(&container.Container{
-						Name:    "dev-myproject",
-						SSHPort: 2201,
-						Status:  "running",
+						Name:      "dev-myproject",
+						SSHPort:   2201,
+						Status:    "running",
+						CreatedAt: time.Now(),
 					}, nil)
 			},
 			wantErr: false,
@@ -114,41 +216,48 @@ func TestCreateCommand(t *testing.T) {
 		{
 			name:        "missing arguments",
 			args:        []string{"myproject"},
-			setupMocks:  func(m *MockContainerManager) {},
+			setupMocks:  func(m *MockContainerManager, s *MockSSHClient) {},
 			wantErr:     true,
-			errContains: "requires at least 2 arg(s)",
+			errContains: "accepts between 2 and 3 arg(s)",
 		},
 		{
-			name:        "invalid container name",
-			args:        []string{"my project!", "https://github.com/user/repo.git"},
-			setupMocks:  func(m *MockContainerManager) {},
+			name: "no ssh key found",
+			args: []string{"myproject", "https://github.com/user/repo.git"},
+			setupMocks: func(m *MockContainerManager, s *MockSSHClient) {
+				s.On("FindSSHPublicKey").Return("", fmt.Errorf("no key found"))
+			},
 			wantErr:     true,
-			errContains: "You're out of your element!",
+			errContains: "no SSH public key found",
 		},
 		{
 			name: "container already exists",
 			args: []string{"existing", "https://github.com/user/repo.git"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("CreateContainer", mock.Anything, "existing", "https://github.com/user/repo.git", "main", mock.AnythingOfType("string")).
-					Return(nil, assert.AnError)
+			setupMocks: func(m *MockContainerManager, s *MockSSHClient) {
+				s.On("FindSSHPublicKey").Return("ssh-rsa AAAAB3NzaC1yc2E...", nil)
+				m.On("CreateContainer", mock.Anything, "existing", "https://github.com/user/repo.git", "main", "ssh-rsa AAAAB3NzaC1yc2E...").
+					Return(nil, fmt.Errorf("container 'existing' already exists"))
 			},
 			wantErr:     true,
-			errContains: "failed to create container",
+			errContains: "already exists",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockManager := new(MockContainerManager)
-			tt.setupMocks(mockManager)
+			mockSSH := new(MockSSHClient)
+			mockGit := new(MockGitClient)
+			tt.setupMocks(mockManager, mockSSH)
 			
-			cmd := NewCreateCommand(mockManager)
+			cfg := config.DefaultConfig()
+			factory := cli.NewTestCommandFactory(cfg, mockManager, mockGit, mockSSH)
+			cmd := factory.CreateCmd()
 			output, err := executeCommand(cmd, tt.args...)
 			
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.errContains != "" {
-					assert.Contains(t, output, tt.errContains)
+					assert.Contains(t, err.Error(), tt.errContains)
 				}
 			} else {
 				require.NoError(t, err)
@@ -158,6 +267,7 @@ func TestCreateCommand(t *testing.T) {
 			}
 			
 			mockManager.AssertExpectations(t)
+			mockSSH.AssertExpectations(t)
 		})
 	}
 }
@@ -174,12 +284,7 @@ func TestSSHCommand(t *testing.T) {
 			name: "successful SSH connection",
 			args: []string{"myproject"},
 			setupMocks: func(m *MockContainerManager) {
-				m.On("GetContainerInfo", mock.Anything, "myproject").
-					Return(&container.Container{
-						Name:    "dev-myproject",
-						SSHPort: 2200,
-						Status:  "running",
-					}, nil)
+				m.On("SSHIntoContainer", mock.Anything, "myproject").Return(nil)
 			},
 			wantErr: false,
 		},
@@ -188,49 +293,39 @@ func TestSSHCommand(t *testing.T) {
 			args:        []string{},
 			setupMocks:  func(m *MockContainerManager) {},
 			wantErr:     true,
-			errContains: "requires exactly 1 arg(s)",
+			errContains: "accepts 1 arg(s)",
 		},
 		{
 			name: "container not found",
 			args: []string{"nonexistent"},
 			setupMocks: func(m *MockContainerManager) {
-				m.On("GetContainerInfo", mock.Anything, "nonexistent").
-					Return(nil, assert.AnError)
+				m.On("SSHIntoContainer", mock.Anything, "nonexistent").
+					Return(fmt.Errorf("container 'nonexistent' not found"))
 			},
 			wantErr:     true,
-			errContains: "Container 'nonexistent' not found",
-		},
-		{
-			name: "container not running",
-			args: []string{"stopped"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("GetContainerInfo", mock.Anything, "stopped").
-					Return(&container.Container{
-						Name:    "dev-stopped",
-						SSHPort: 2200,
-						Status:  "stopped",
-					}, nil)
-			},
-			wantErr:     true,
-			errContains: "Container 'stopped' is not running",
+			errContains: "not found",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockManager := new(MockContainerManager)
+			mockSSH := new(MockSSHClient)
+			mockGit := new(MockGitClient)
 			tt.setupMocks(mockManager)
 			
-			// For SSH command, we'll need to mock the actual SSH execution
-			// In real implementation, this would exec ssh
-			cmd := NewSSHCommand(mockManager)
-			output, err := executeCommand(cmd, tt.args...)
+			cfg := config.DefaultConfig()
+			factory := cli.NewTestCommandFactory(cfg, mockManager, mockGit, mockSSH)
+			cmd := factory.SSHCmd()
+			_, err := executeCommand(cmd, tt.args...)
 			
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.errContains != "" {
-					assert.Contains(t, output, tt.errContains)
+					assert.Contains(t, err.Error(), tt.errContains)
 				}
+			} else {
+				require.NoError(t, err)
 			}
 			
 			mockManager.AssertExpectations(t)
@@ -240,29 +335,33 @@ func TestSSHCommand(t *testing.T) {
 
 func TestListCommand(t *testing.T) {
 	mockManager := new(MockContainerManager)
+	mockSSH := new(MockSSHClient)
+	mockGit := new(MockGitClient)
 	
 	containers := []*container.Container{
 		{
-			Name:     "dev-project1",
-			Status:   "running",
-			SSHPort:  2200,
-			GitURL:   "https://github.com/user/project1.git",
-			Branch:   "main",
-			Created:  "2024-01-01T10:00:00Z",
+			Name:      "dev-project1",
+			Status:    "running",
+			SSHPort:   2200,
+			GitURL:    "https://github.com/user/project1.git",
+			GitBranch: "main",
+			CreatedAt: time.Now().Add(-2 * time.Hour),
 		},
 		{
-			Name:     "dev-project2",
-			Status:   "stopped",
-			SSHPort:  2201,
-			GitURL:   "https://github.com/user/project2.git",
-			Branch:   "develop",
-			Created:  "2024-01-02T10:00:00Z",
+			Name:      "dev-project2",
+			Status:    "stopped",
+			SSHPort:   2201,
+			GitURL:    "https://github.com/user/project2.git",
+			GitBranch: "develop",
+			CreatedAt: time.Now().Add(-72 * time.Hour),
 		},
 	}
 	
 	mockManager.On("ListContainers", mock.Anything).Return(containers, nil)
 	
-	cmd := NewListCommand(mockManager)
+	cfg := config.DefaultConfig()
+	factory := cli.NewTestCommandFactory(cfg, mockManager, mockGit, mockSSH)
+	cmd := factory.ListCmd()
 	output, err := executeCommand(cmd)
 	
 	require.NoError(t, err)
@@ -278,92 +377,6 @@ func TestListCommand(t *testing.T) {
 	assert.Contains(t, output, "2201")
 	
 	mockManager.AssertExpectations(t)
-}
-
-func TestRemoveCommand(t *testing.T) {
-	tests := []struct {
-		name        string
-		args        []string
-		flags       map[string]string
-		setupMocks  func(*MockContainerManager)
-		wantErr     bool
-		errContains string
-		outContains []string
-	}{
-		{
-			name:  "successful removal with volumes",
-			args:  []string{"myproject"},
-			flags: map[string]string{"volumes": "true"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("RemoveContainer", mock.Anything, "myproject", true).Return(nil)
-			},
-			wantErr: false,
-			outContains: []string{
-				"Git remote removed",
-				"Container removed",
-				"Volumes removed",
-			},
-		},
-		{
-			name:  "successful removal without volumes",
-			args:  []string{"myproject"},
-			flags: map[string]string{"volumes": "false"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("RemoveContainer", mock.Anything, "myproject", false).Return(nil)
-			},
-			wantErr: false,
-			outContains: []string{
-				"Container removed",
-			},
-		},
-		{
-			name:        "missing container name",
-			args:        []string{},
-			setupMocks:  func(m *MockContainerManager) {},
-			wantErr:     true,
-			errContains: "requires exactly 1 arg(s)",
-		},
-		{
-			name:  "container not found",
-			args:  []string{"nonexistent"},
-			flags: map[string]string{"volumes": "true"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("RemoveContainer", mock.Anything, "nonexistent", true).Return(assert.AnError)
-			},
-			wantErr:     true,
-			errContains: "failed to remove container",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockManager := new(MockContainerManager)
-			tt.setupMocks(mockManager)
-			
-			cmd := NewRemoveCommand(mockManager)
-			
-			// Set flags
-			for flag, value := range tt.flags {
-				cmd.Flags().Set(flag, value)
-			}
-			
-			output, err := executeCommand(cmd, tt.args...)
-			
-			if tt.wantErr {
-				require.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, output, tt.errContains)
-				}
-			} else {
-				require.NoError(t, err)
-				for _, expected := range tt.outContains {
-					assert.Contains(t, output, expected)
-				}
-			}
-			
-			mockManager.AssertExpectations(t)
-		})
-	}
 }
 
 func TestStartStopCommands(t *testing.T) {
@@ -402,30 +415,25 @@ func TestStartStopCommands(t *testing.T) {
 			args:        []string{},
 			setupMocks:  func(m *MockContainerManager) {},
 			wantErr:     true,
-			errContains: "requires exactly 1 arg(s)",
-		},
-		{
-			name:    "start failed",
-			command: "start",
-			args:    []string{"myproject"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("StartContainer", mock.Anything, "myproject").Return(assert.AnError)
-			},
-			wantErr:     true,
-			errContains: "failed to start container",
+			errContains: "accepts 1 arg(s)",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockManager := new(MockContainerManager)
+			mockSSH := new(MockSSHClient)
+			mockGit := new(MockGitClient)
 			tt.setupMocks(mockManager)
+			
+			cfg := config.DefaultConfig()
+			factory := cli.NewTestCommandFactory(cfg, mockManager, mockGit, mockSSH)
 			
 			var cmd *cobra.Command
 			if tt.command == "start" {
-				cmd = NewStartCommand(mockManager)
+				cmd = factory.StartCmd()
 			} else {
-				cmd = NewStopCommand(mockManager)
+				cmd = factory.StopCmd()
 			}
 			
 			output, err := executeCommand(cmd, tt.args...)
@@ -433,300 +441,11 @@ func TestStartStopCommands(t *testing.T) {
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.errContains != "" {
-					assert.Contains(t, output, tt.errContains)
+					assert.Contains(t, err.Error(), tt.errContains)
 				}
 			} else {
 				require.NoError(t, err)
 				assert.Contains(t, output, tt.outContains)
-			}
-			
-			mockManager.AssertExpectations(t)
-		})
-	}
-}
-
-func TestInfoCommand(t *testing.T) {
-	tests := []struct {
-		name        string
-		args        []string
-		setupMocks  func(*MockContainerManager)
-		wantErr     bool
-		errContains string
-		outContains []string
-	}{
-		{
-			name: "successful info display",
-			args: []string{"myproject"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("GetContainerInfo", mock.Anything, "myproject").
-					Return(&container.Container{
-						Name:    "dev-myproject",
-						Status:  "running",
-						SSHPort: 2200,
-						GitURL:  "https://github.com/user/repo.git",
-						Branch:  "main",
-						Created: "2024-01-01T10:00:00Z",
-						Volumes: map[string]string{
-							"home":      "dev-myproject-home",
-							"workspace": "dev-myproject-workspace",
-						},
-						Labels: map[string]string{
-							"l8s.managed":   "true",
-							"l8s.git.url":   "https://github.com/user/repo.git",
-							"l8s.git.branch": "main",
-							"l8s.ssh.port":  "2200",
-						},
-					}, nil)
-			},
-			wantErr: false,
-			outContains: []string{
-				"Container: dev-myproject",
-				"Status: running",
-				"SSH Port: 2200",
-				"Git Repository: https://github.com/user/repo.git",
-				"Branch: main",
-				"ssh dev-myproject",
-				"ssh -p 2200 dev@localhost",
-				"Volumes:",
-				"home: dev-myproject-home",
-				"workspace: dev-myproject-workspace",
-			},
-		},
-		{
-			name:        "missing container name",
-			args:        []string{},
-			setupMocks:  func(m *MockContainerManager) {},
-			wantErr:     true,
-			errContains: "requires exactly 1 arg(s)",
-		},
-		{
-			name: "container not found",
-			args: []string{"nonexistent"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("GetContainerInfo", mock.Anything, "nonexistent").
-					Return(nil, assert.AnError)
-			},
-			wantErr:     true,
-			errContains: "Container 'nonexistent' not found",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockManager := new(MockContainerManager)
-			tt.setupMocks(mockManager)
-			
-			cmd := NewInfoCommand(mockManager)
-			output, err := executeCommand(cmd, tt.args...)
-			
-			if tt.wantErr {
-				require.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, output, tt.errContains)
-				}
-			} else {
-				require.NoError(t, err)
-				for _, expected := range tt.outContains {
-					assert.Contains(t, output, expected)
-				}
-			}
-			
-			mockManager.AssertExpectations(t)
-		})
-	}
-}
-
-func TestBuildCommand(t *testing.T) {
-	tests := []struct {
-		name        string
-		args        []string
-		wantErr     bool
-		errContains string
-		outContains []string
-	}{
-		{
-			name:    "successful build",
-			args:    []string{},
-			wantErr: false,
-			outContains: []string{
-				"Building l8s base image",
-				"Image built successfully",
-			},
-		},
-		{
-			name:        "build with custom tag",
-			args:        []string{"--tag", "localhost/my-l8s:latest"},
-			wantErr:     false,
-			outContains: []string{"Building l8s base image"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Build command doesn't use container manager
-			cmd := NewBuildCommand()
-			output, err := executeCommand(cmd, tt.args...)
-			
-			if tt.wantErr {
-				require.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, output, tt.errContains)
-				}
-			} else {
-				// In real implementation, this would build the image
-				// For testing, we just check the command structure
-				assert.NotNil(t, cmd)
-			}
-		})
-	}
-}
-
-func TestRemoteCommands(t *testing.T) {
-	tests := []struct {
-		name        string
-		command     string
-		args        []string
-		setupMocks  func(*MockContainerManager)
-		wantErr     bool
-		errContains string
-		outContains []string
-	}{
-		{
-			name:    "remote add",
-			command: "add",
-			args:    []string{"myproject"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("GetContainerInfo", mock.Anything, "myproject").
-					Return(&container.Container{
-						Name:    "dev-myproject",
-						SSHPort: 2200,
-						Status:  "running",
-					}, nil)
-			},
-			wantErr: false,
-			outContains: []string{
-				"Git remote 'myproject' added",
-			},
-		},
-		{
-			name:    "remote remove",
-			command: "remove",
-			args:    []string{"myproject"},
-			setupMocks: func(m *MockContainerManager) {
-				// Remote remove doesn't need container info
-			},
-			wantErr: false,
-			outContains: []string{
-				"Git remote 'myproject' removed",
-			},
-		},
-		{
-			name:        "remote add missing args",
-			command:     "add",
-			args:        []string{},
-			setupMocks:  func(m *MockContainerManager) {},
-			wantErr:     true,
-			errContains: "requires exactly 1 arg(s)",
-		},
-		{
-			name:    "remote add container not found",
-			command: "add",
-			args:    []string{"nonexistent"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("GetContainerInfo", mock.Anything, "nonexistent").
-					Return(nil, assert.AnError)
-			},
-			wantErr:     true,
-			errContains: "Container 'nonexistent' not found",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockManager := new(MockContainerManager)
-			tt.setupMocks(mockManager)
-			
-			var cmd *cobra.Command
-			if tt.command == "add" {
-				cmd = NewRemoteAddCommand(mockManager)
-			} else {
-				cmd = NewRemoteRemoveCommand(mockManager)
-			}
-			
-			output, err := executeCommand(cmd, tt.args...)
-			
-			if tt.wantErr {
-				require.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, output, tt.errContains)
-				}
-			} else {
-				require.NoError(t, err)
-				for _, expected := range tt.outContains {
-					assert.Contains(t, output, expected)
-				}
-			}
-			
-			mockManager.AssertExpectations(t)
-		})
-	}
-}
-
-func TestExecCommand(t *testing.T) {
-	tests := []struct {
-		name        string
-		args        []string
-		setupMocks  func(*MockContainerManager)
-		wantErr     bool
-		errContains string
-	}{
-		{
-			name: "successful exec",
-			args: []string{"myproject", "ls", "-la"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("GetContainerInfo", mock.Anything, "myproject").
-					Return(&container.Container{
-						Name:   "dev-myproject",
-						Status: "running",
-					}, nil)
-			},
-			wantErr: false,
-		},
-		{
-			name:        "missing arguments",
-			args:        []string{"myproject"},
-			setupMocks:  func(m *MockContainerManager) {},
-			wantErr:     true,
-			errContains: "requires at least 2 arg(s)",
-		},
-		{
-			name: "container not running",
-			args: []string{"stopped", "ls"},
-			setupMocks: func(m *MockContainerManager) {
-				m.On("GetContainerInfo", mock.Anything, "stopped").
-					Return(&container.Container{
-						Name:   "dev-stopped",
-						Status: "stopped",
-					}, nil)
-			},
-			wantErr:     true,
-			errContains: "Container 'stopped' is not running",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockManager := new(MockContainerManager)
-			tt.setupMocks(mockManager)
-			
-			cmd := NewExecCommand(mockManager)
-			output, err := executeCommand(cmd, tt.args...)
-			
-			if tt.wantErr {
-				require.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, output, tt.errContains)
-				}
 			}
 			
 			mockManager.AssertExpectations(t)

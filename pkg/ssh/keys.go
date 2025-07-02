@@ -272,3 +272,16 @@ func updateSSHConfigEntry(configPath, entry string) error {
 	// Add the new entry
 	return AddSSHConfigEntry(configPath, entry)
 }
+
+// AddSSHConfig adds an SSH config entry for a container
+func AddSSHConfig(name, hostname string, port int, user string) error {
+	sshConfigPath := filepath.Join(GetHomeDir(), ".ssh", "config")
+	entry := GenerateSSHConfigEntry(fmt.Sprintf("dev-%s", name), port, user, "dev")
+	return AddSSHConfigEntry(sshConfigPath, entry)
+}
+
+// RemoveSSHConfig removes an SSH config entry for a container
+func RemoveSSHConfig(name string) error {
+	sshConfigPath := filepath.Join(GetHomeDir(), ".ssh", "config")
+	return RemoveSSHConfigEntry(sshConfigPath, fmt.Sprintf("dev-%s", name))
+}
