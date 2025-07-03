@@ -305,7 +305,7 @@ func TestFindSSHPublicKey(t *testing.T) {
 		
 		key, err := FindSSHPublicKey()
 		require.NoError(t, err)
-		// Should find one of the keys (preference order: ed25519, rsa, ecdsa)
+		// Should find one of the keys (alphabetical order)
 		assert.True(t, strings.HasPrefix(key, "ssh-ed25519") || 
 			strings.HasPrefix(key, "ssh-rsa") || 
 			strings.HasPrefix(key, "ecdsa-sha2-nistp256"))
