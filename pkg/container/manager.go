@@ -311,18 +311,27 @@ func (m *Manager) setupSSH(ctx context.Context, containerName, publicKey string)
 
 // copyDotfiles copies dotfiles to the container
 func (m *Manager) copyDotfiles(ctx context.Context, containerName string) error {
-	// Get dotfiles directory
-	dotfilesDir := filepath.Join(filepath.Dir(os.Args[0]), "..", "dotfiles")
+	// Use repository's dotfiles directory for consistent dev environment
+	// This provides isolation and ensures all developers get the same experience
+	workDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+	
+	// Look for dotfiles in the repository
+	dotfilesDir := filepath.Join(workDir, "dotfiles")
 	
 	// Check if dotfiles directory exists
 	if _, err := os.Stat(dotfilesDir); os.IsNotExist(err) {
-		// Try relative to current directory
-		dotfilesDir = "dotfiles"
-		if _, err := os.Stat(dotfilesDir); os.IsNotExist(err) {
-			// No dotfiles directory, skip
-			return nil
-		}
+		// No repository dotfiles, skip
+		m.logger.Debug("no repository dotfiles found, skipping", 
+			logging.WithField("path", dotfilesDir))
+		return nil
 	}
+	
+	m.logger.Info("copying repository dotfiles to container",
+		logging.WithField("source", dotfilesDir),
+		logging.WithField("container", containerName))
 	
 	// Copy dotfiles to container
 	return CopyDotfilesToContainer(ctx, m.client, containerName, dotfilesDir, m.config.ContainerUser)
