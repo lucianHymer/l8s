@@ -3,13 +3,16 @@ package container
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/l8s/l8s/pkg/cleanup"
 	"github.com/l8s/l8s/pkg/git"
+	"github.com/l8s/l8s/pkg/logging"
 	"github.com/l8s/l8s/pkg/ssh"
 )
 
@@ -17,6 +20,7 @@ import (
 type Manager struct {
 	client PodmanClient
 	config Config
+	logger *slog.Logger
 }
 
 // NewManager creates a new container manager
@@ -24,11 +28,24 @@ func NewManager(client PodmanClient, config Config) *Manager {
 	return &Manager{
 		client: client,
 		config: config,
+		logger: logging.Default(),
 	}
 }
 
 // CreateContainer creates a new development container
 func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, sshKey string) (*Container, error) {
+	// Create cleanup handler
+	cleaner := cleanup.New(m.logger)
+	defer func() {
+		if err := recover(); err != nil {
+			m.logger.Error("panic during container creation",
+				logging.WithField("panic", err),
+				logging.WithField("container", name))
+			cleaner.Cleanup(ctx)
+			panic(err)
+		}
+	}()
+
 	// Validate container name
 	if err := validateContainerName(name); err != nil {
 		return nil, err
@@ -60,6 +77,12 @@ func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, ssh
 		return nil, fmt.Errorf("failed to find available port: %w", err)
 	}
 
+	m.logger.Info("creating container",
+		logging.WithField("name", name),
+		logging.WithField("git_url", gitURL),
+		logging.WithField("branch", branch),
+		logging.WithField("ssh_port", sshPort))
+
 	// Create container configuration
 	config := ContainerConfig{
 		Name:          containerName,
@@ -83,30 +106,35 @@ func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, ssh
 		return nil, fmt.Errorf("failed to create container: %w", err)
 	}
 
+	// Add cleanup handler for container
+	cleaner.Add("remove_container", func(ctx context.Context) error {
+		m.logger.Debug("removing container", logging.WithField("container", containerName))
+		return m.client.RemoveContainer(ctx, containerName, true)
+	})
+
 	// Start the container
 	if err := m.client.StartContainer(ctx, containerName); err != nil {
-		// Clean up on failure
-		_ = m.client.RemoveContainer(ctx, containerName, true)
+		cleaner.Cleanup(ctx)
 		return nil, fmt.Errorf("failed to start container: %w", err)
 	}
 
 	// Set up SSH
 	if err := m.setupSSH(ctx, containerName, sshKey); err != nil {
-		// Clean up on failure
-		_ = m.client.RemoveContainer(ctx, containerName, true)
+		cleaner.Cleanup(ctx)
 		return nil, fmt.Errorf("failed to setup SSH: %w", err)
 	}
 
 	// Copy dotfiles
 	if err := m.copyDotfiles(ctx, containerName); err != nil {
 		// Log error but don't fail container creation
-		fmt.Printf("Warning: failed to copy dotfiles: %v\n", err)
+		m.logger.Warn("failed to copy dotfiles",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
 	}
 
 	// Clone git repository
 	if err := m.cloneRepository(ctx, containerName, gitURL, branch); err != nil {
-		// Clean up on failure
-		_ = m.client.RemoveContainer(ctx, containerName, true)
+		cleaner.Cleanup(ctx)
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -115,14 +143,32 @@ func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, ssh
 	sshConfigPath := filepath.Join(ssh.GetHomeDir(), ".ssh", "config")
 	if err := ssh.AddSSHConfigEntry(sshConfigPath, sshConfigEntry); err != nil {
 		// Log error but don't fail container creation
-		fmt.Printf("Warning: failed to add SSH config entry: %v\n", err)
+		m.logger.Warn("failed to add SSH config entry",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
 	}
+
+	// Add cleanup handler for SSH config
+	cleaner.Add("remove_ssh_config", func(ctx context.Context) error {
+		m.logger.Debug("removing SSH config entry", logging.WithField("container", containerName))
+		return ssh.RemoveSSHConfigEntry(sshConfigPath, containerName)
+	})
 
 	// Add git remote on host
 	if err := m.addGitRemote(name, containerName, sshPort); err != nil {
 		// Log error but don't fail container creation
-		fmt.Printf("Warning: failed to add git remote: %v\n", err)
+		m.logger.Warn("failed to add git remote",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
 	}
+
+	// Success - clear cleanup handlers
+	cleaner = cleanup.New(m.logger)
+
+	m.logger.Info("container created successfully",
+		logging.WithField("name", name),
+		logging.WithField("container", containerName),
+		logging.WithField("ssh_port", sshPort))
 
 	return container, nil
 }
@@ -136,6 +182,11 @@ func (m *Manager) ListContainers(ctx context.Context) ([]*Container, error) {
 func (m *Manager) RemoveContainer(ctx context.Context, name string, removeVolumes bool) error {
 	containerName := m.config.ContainerPrefix + "-" + name
 
+	m.logger.Info("removing container",
+		logging.WithField("name", name),
+		logging.WithField("container", containerName),
+		logging.WithField("remove_volumes", removeVolumes))
+
 	// Check if container exists
 	exists, err := m.client.ContainerExists(ctx, containerName)
 	if err != nil {
@@ -145,21 +196,44 @@ func (m *Manager) RemoveContainer(ctx context.Context, name string, removeVolume
 		return fmt.Errorf("container '%s' not found", name)
 	}
 
+	// Create cleanup handler for partial failures
+	var errors []error
+
 	// Remove git remote
 	if err := m.removeGitRemote(name); err != nil {
 		// Log error but continue with removal
-		fmt.Printf("Warning: failed to remove git remote: %v\n", err)
+		m.logger.Warn("failed to remove git remote",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
+		errors = append(errors, fmt.Errorf("git remote: %w", err))
 	}
 
 	// Remove SSH config entry
 	sshConfigPath := filepath.Join(ssh.GetHomeDir(), ".ssh", "config")
 	if err := ssh.RemoveSSHConfigEntry(sshConfigPath, containerName); err != nil {
 		// Log error but continue with removal
-		fmt.Printf("Warning: failed to remove SSH config entry: %v\n", err)
+		m.logger.Warn("failed to remove SSH config entry",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
+		errors = append(errors, fmt.Errorf("SSH config: %w", err))
 	}
 
 	// Remove the container
-	return m.client.RemoveContainer(ctx, containerName, removeVolumes)
+	if err := m.client.RemoveContainer(ctx, containerName, removeVolumes); err != nil {
+		return fmt.Errorf("failed to remove container: %w", err)
+	}
+
+	m.logger.Info("container removed successfully",
+		logging.WithField("name", name),
+		logging.WithField("container", containerName))
+
+	// Report non-critical errors
+	if len(errors) > 0 {
+		m.logger.Warn("removal completed with warnings",
+			logging.WithField("warnings", errors))
+	}
+
+	return nil
 }
 
 // StartContainer starts a stopped container
@@ -188,30 +262,53 @@ func (m *Manager) ExecContainer(ctx context.Context, name string, cmd []string) 
 
 // setupSSH sets up SSH access in the container
 func (m *Manager) setupSSH(ctx context.Context, containerName, publicKey string) error {
+	m.logger.Debug("setting up SSH",
+		logging.WithField("container", containerName))
+
+	// Create cleanup handler for partial SSH setup
+	cleaner := cleanup.New(m.logger)
+
 	// Create .ssh directory
-	mkdirCmd := []string{"mkdir", "-p", fmt.Sprintf("/home/%s/.ssh", m.config.ContainerUser)}
+	sshDir := fmt.Sprintf("/home/%s/.ssh", m.config.ContainerUser)
+	mkdirCmd := []string{"mkdir", "-p", sshDir}
 	if err := m.client.ExecContainer(ctx, containerName, mkdirCmd); err != nil {
-		return err
+		return fmt.Errorf("failed to create SSH directory: %w", err)
 	}
+
+	// Add cleanup to remove directory on failure
+	cleaner.Add("remove_ssh_dir", func(ctx context.Context) error {
+		return m.client.ExecContainer(ctx, containerName, []string{"rm", "-rf", sshDir})
+	})
 
 	// Generate authorized_keys content
 	authorizedKeys := ssh.GenerateAuthorizedKeys(publicKey)
 
-	// Write authorized_keys file
-	writeCmd := []string{"sh", "-c", fmt.Sprintf("echo '%s' > /home/%s/.ssh/authorized_keys", authorizedKeys, m.config.ContainerUser)}
-	if err := m.client.ExecContainer(ctx, containerName, writeCmd); err != nil {
-		return err
+	// Write authorized_keys file using tee to avoid shell injection
+	authorizedKeysPath := fmt.Sprintf("%s/authorized_keys", sshDir)
+	writeCmd := []string{"tee", authorizedKeysPath}
+	if err := m.client.ExecContainerWithInput(ctx, containerName, writeCmd, authorizedKeys); err != nil {
+		cleaner.Cleanup(ctx)
+		return fmt.Errorf("failed to write authorized_keys: %w", err)
 	}
 
 	// Set permissions
-	chmodCmd := []string{"chmod", "600", fmt.Sprintf("/home/%s/.ssh/authorized_keys", m.config.ContainerUser)}
+	chmodCmd := []string{"chmod", "600", authorizedKeysPath}
 	if err := m.client.ExecContainer(ctx, containerName, chmodCmd); err != nil {
-		return err
+		cleaner.Cleanup(ctx)
+		return fmt.Errorf("failed to set permissions: %w", err)
 	}
 
 	// Set ownership
-	chownCmd := []string{"chown", "-R", fmt.Sprintf("%s:%s", m.config.ContainerUser, m.config.ContainerUser), fmt.Sprintf("/home/%s/.ssh", m.config.ContainerUser)}
-	return m.client.ExecContainer(ctx, containerName, chownCmd)
+	chownCmd := []string{"chown", "-R", fmt.Sprintf("%s:%s", m.config.ContainerUser, m.config.ContainerUser), sshDir}
+	if err := m.client.ExecContainer(ctx, containerName, chownCmd); err != nil {
+		cleaner.Cleanup(ctx)
+		return fmt.Errorf("failed to set ownership: %w", err)
+	}
+
+	m.logger.Debug("SSH setup completed",
+		logging.WithField("container", containerName))
+
+	return nil
 }
 
 // copyDotfiles copies dotfiles to the container

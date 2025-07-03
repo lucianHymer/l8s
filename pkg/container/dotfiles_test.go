@@ -261,17 +261,17 @@ func TestCopyDotfilesToContainer(t *testing.T) {
 				return os.WriteFile(filepath.Join(dir, ".zshrc"), []byte("# ZSH config"), 0644)
 			},
 			mockPodman: func(m *MockPodmanClient) {
-				// Mock container exec for creating directories
-				m.On("ExecContainer", mock.Anything, "dev-myproject", 
-					[]string{"mkdir", "-p", "/home/dev"}).Return(nil)
-				
 				// Mock container exec for copying files
 				m.On("CopyToContainer", mock.Anything, "dev-myproject", 
 					mock.AnythingOfType("string"), "/home/dev/.zshrc").Return(nil)
 				
-				// Mock container exec for chown
+				// Mock container exec for chown on the file
 				m.On("ExecContainer", mock.Anything, "dev-myproject", 
-					[]string{"chown", "-R", "dev:dev", "/home/dev"}).Return(nil)
+					[]string{"chown", "dev:dev", "/home/dev/.zshrc"}).Return(nil)
+				
+				// Mock container exec for chmod on the file
+				m.On("ExecContainer", mock.Anything, "dev-myproject", 
+					[]string{"chmod", "644", "/home/dev/.zshrc"}).Return(nil)
 			},
 			wantErr: false,
 		},
@@ -283,11 +283,12 @@ func TestCopyDotfilesToContainer(t *testing.T) {
 				return os.WriteFile(filepath.Join(dir, ".zshrc"), []byte("# ZSH config"), 0644)
 			},
 			mockPodman: func(m *MockPodmanClient) {
-				m.On("ExecContainer", mock.Anything, "dev-nonexistent", 
-					mock.Anything).Return(assert.AnError)
+				// The implementation will try to copy first, then fail on exec
+				m.On("CopyToContainer", mock.Anything, "dev-nonexistent", 
+					mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(assert.AnError)
 			},
 			wantErr:     true,
-			errContains: "failed to copy dotfiles",
+			errContains: "failed to copy",
 		},
 	}
 	
