@@ -17,9 +17,11 @@ import (
 	"github.com/containers/podman/v5/pkg/bindings"
 	"github.com/containers/podman/v5/pkg/bindings/containers"
 	"github.com/containers/podman/v5/pkg/bindings/images"
+	"github.com/containers/podman/v5/pkg/bindings/system"
 	"github.com/containers/podman/v5/pkg/specgen"
 	"github.com/containers/podman/v5/pkg/api/handlers"
 	dockerContainer "github.com/docker/docker/api/types/container"
+	"github.com/l8s/l8s/pkg/config"
 	"github.com/l8s/l8s/pkg/ssh"
 )
 
@@ -30,29 +32,79 @@ type RealPodmanClient struct {
 
 // NewPodmanClient creates a new Podman client
 func NewPodmanClient() (*RealPodmanClient, error) {
-	// Get connection to Podman socket
-	conn, err := bindings.NewConnection(context.Background(), "unix://run/podman/podman.sock")
+	// Load configuration
+	cfg, err := config.Load(config.GetConfigPath())
 	if err != nil {
-		// Try user socket
-		home := os.Getenv("HOME")
-		if home == "" {
-			home = "/tmp"
-		}
-		userSocket := fmt.Sprintf("unix://%s/.local/share/containers/podman/machine/podman.sock", home)
-		conn, err = bindings.NewConnection(context.Background(), userSocket)
-		if err != nil {
-			// Try XDG runtime dir
-			xdgRuntime := os.Getenv("XDG_RUNTIME_DIR")
-			if xdgRuntime != "" {
-				xdgSocket := fmt.Sprintf("unix://%s/podman/podman.sock", xdgRuntime)
-				conn, err = bindings.NewConnection(context.Background(), xdgSocket)
-			}
-			if err != nil {
-				return nil, fmt.Errorf("failed to connect to Podman: %w", err)
-			}
-		}
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
+	
+	// Validate remote configuration
+	if cfg.RemoteHost == "" || cfg.RemoteUser == "" {
+		return nil, fmt.Errorf(`l8s requires remote server configuration.
 
+Please configure your remote server in ~/.config/l8s/config.yaml:
+
+  remote_host: your-server.example.com
+  remote_user: your-username
+
+Or run 'l8s init' to set up your configuration.
+
+Note: l8s ONLY supports remote container management for security isolation.`)
+	}
+	
+	// Build connection string
+	connectionURI := fmt.Sprintf("ssh://%s@%s%s",
+		cfg.RemoteUser,
+		cfg.RemoteHost,
+		cfg.RemoteSocket,
+	)
+	
+	// Verify ssh-agent is running
+	if _, exists := os.LookupEnv("SSH_AUTH_SOCK"); !exists {
+		return nil, fmt.Errorf(`ssh-agent is required but not running.
+
+Please start ssh-agent and add your key:
+  eval $(ssh-agent)
+  ssh-add %s
+
+l8s requires ssh-agent for secure remote connections.`, cfg.SSHKeyPath)
+	}
+	
+	// Set SSH key if specified
+	if cfg.SSHKeyPath != "" {
+		os.Setenv("CONTAINER_SSHKEY", cfg.SSHKeyPath)
+	}
+	
+	// Create connection
+	ctx := context.Background()
+	conn, err := bindings.NewConnection(ctx, connectionURI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to remote Podman at %s: %w", cfg.RemoteHost, err)
+	}
+	
+	// Test connection
+	_, err = system.Info(conn, nil)
+	if err != nil {
+		return nil, fmt.Errorf(`failed to connect to Podman on remote server.
+
+Connection details:
+  Host: %s
+  User: %s
+  Socket: %s
+
+Error: %w
+
+Troubleshooting:
+1. Verify SSH access: ssh %s@%s
+2. Check Podman socket is running: systemctl --user status podman.socket
+3. Ensure user has Podman permissions
+4. Check ~/.config/l8s/config.yaml settings
+
+For setup instructions, see: https://github.com/l8s/l8s/docs/REMOTE_SETUP.md`,
+			cfg.RemoteHost, cfg.RemoteUser, cfg.RemoteSocket, err,
+			cfg.RemoteUser, cfg.RemoteHost)
+	}
+	
 	return &RealPodmanClient{conn: conn}, nil
 }
 

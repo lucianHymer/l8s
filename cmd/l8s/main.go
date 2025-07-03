@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/l8s/l8s/cmd/commands"
 	"github.com/l8s/l8s/pkg/cli"
 	"github.com/l8s/l8s/pkg/logging"
 	"github.com/spf13/cobra"
@@ -14,13 +15,6 @@ import (
 func main() {
 	// Initialize logging
 	initLogging()
-
-	// Create command factory
-	factory, err := cli.NewCommandFactory()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
 
 	// Create root command
 	rootCmd := &cobra.Command{
@@ -31,6 +25,26 @@ that creates isolated, SSH-accessible development environments.
 
 Each container is a fully-featured Linux environment with development tools,
 accessible via SSH using key-based authentication.`,
+	}
+
+	// Add init command (doesn't require config)
+	rootCmd.AddCommand(commands.InitCmd())
+
+	// Check if this is the init command
+	if len(os.Args) > 1 && os.Args[1] == "init" {
+		// Execute init command without loading config
+		if err := rootCmd.Execute(); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
+	// Create command factory (requires config)
+	factory, err := cli.NewCommandFactory()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "\nRun 'l8s init' to configure l8s for your remote server.\n")
+		os.Exit(1)
 	}
 
 	// Add commands from factory

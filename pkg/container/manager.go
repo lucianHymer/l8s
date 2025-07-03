@@ -139,9 +139,8 @@ func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, ssh
 	}
 
 	// Add SSH config entry
-	sshConfigEntry := ssh.GenerateSSHConfigEntry(containerName, sshPort, m.config.ContainerUser, m.config.ContainerPrefix)
-	sshConfigPath := filepath.Join(ssh.GetHomeDir(), ".ssh", "config")
-	if err := ssh.AddSSHConfigEntry(sshConfigPath, sshConfigEntry); err != nil {
+	// Note: AddSSHConfig will load remote host from config
+	if err := ssh.AddSSHConfig(name, "", sshPort, m.config.ContainerUser); err != nil {
 		// Log error but don't fail container creation
 		m.logger.Warn("failed to add SSH config entry",
 			logging.WithError(err),
@@ -151,7 +150,7 @@ func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, ssh
 	// Add cleanup handler for SSH config
 	cleaner.Add("remove_ssh_config", func(ctx context.Context) error {
 		m.logger.Debug("removing SSH config entry", logging.WithField("container", containerName))
-		return ssh.RemoveSSHConfigEntry(sshConfigPath, containerName)
+		return ssh.RemoveSSHConfig(name)
 	})
 
 	// Add git remote on host
@@ -209,8 +208,7 @@ func (m *Manager) RemoveContainer(ctx context.Context, name string, removeVolume
 	}
 
 	// Remove SSH config entry
-	sshConfigPath := filepath.Join(ssh.GetHomeDir(), ".ssh", "config")
-	if err := ssh.RemoveSSHConfigEntry(sshConfigPath, containerName); err != nil {
+	if err := ssh.RemoveSSHConfig(name); err != nil {
 		// Log error but continue with removal
 		m.logger.Warn("failed to remove SSH config entry",
 			logging.WithError(err),
