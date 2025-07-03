@@ -47,6 +47,12 @@ func createTestRepo(t *testing.T) string {
 	err = cmd.Run()
 	require.NoError(t, err)
 	
+	// Ensure we're on main branch (for consistency across git versions)
+	cmd = exec.Command("git", "branch", "-M", "main")
+	cmd.Dir = tmpDir
+	err = cmd.Run()
+	require.NoError(t, err)
+	
 	return tmpDir
 }
 
@@ -93,7 +99,7 @@ func TestCloneRepository(t *testing.T) {
 			if tt.setupRepo {
 				sourceRepo := createTestRepo(t)
 				if tt.gitURL == "" {
-					tt.gitURL = sourceRepo
+					tt.gitURL = "file://" + sourceRepo
 				}
 			}
 			

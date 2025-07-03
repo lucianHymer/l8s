@@ -9,70 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockPodmanClient mocks the Podman client interface
-type MockPodmanClient struct {
-	mock.Mock
-}
-
-func (m *MockPodmanClient) ContainerExists(ctx context.Context, name string) (bool, error) {
-	args := m.Called(ctx, name)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *MockPodmanClient) CreateContainer(ctx context.Context, config ContainerConfig) (*Container, error) {
-	args := m.Called(ctx, config)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*Container), args.Error(1)
-}
-
-func (m *MockPodmanClient) StartContainer(ctx context.Context, name string) error {
-	args := m.Called(ctx, name)
-	return args.Error(0)
-}
-
-func (m *MockPodmanClient) StopContainer(ctx context.Context, name string) error {
-	args := m.Called(ctx, name)
-	return args.Error(0)
-}
-
-func (m *MockPodmanClient) RemoveContainer(ctx context.Context, name string, removeVolumes bool) error {
-	args := m.Called(ctx, name, removeVolumes)
-	return args.Error(0)
-}
-
-func (m *MockPodmanClient) ListContainers(ctx context.Context) ([]*Container, error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*Container), args.Error(1)
-}
-
-func (m *MockPodmanClient) GetContainerInfo(ctx context.Context, name string) (*Container, error) {
-	args := m.Called(ctx, name)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*Container), args.Error(1)
-}
-
-func (m *MockPodmanClient) FindAvailablePort(startPort int) (int, error) {
-	args := m.Called(startPort)
-	return args.Int(0), args.Error(1)
-}
-
-func (m *MockPodmanClient) ExecContainer(ctx context.Context, name string, cmd []string) error {
-	args := m.Called(ctx, name, cmd)
-	return args.Error(0)
-}
-
-func (m *MockPodmanClient) CopyToContainer(ctx context.Context, name string, src, dst string) error {
-	args := m.Called(ctx, name, src, dst)
-	return args.Error(0)
-}
-
 func TestManager_CreateContainer(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -96,9 +32,8 @@ func TestManager_CreateContainer(t *testing.T) {
 				m.On("CreateContainer", mock.Anything, mock.MatchedBy(func(config ContainerConfig) bool {
 					// Verify container config including labels
 					return config.Name == "dev-myproject" &&
-						config.Hostname == "myproject" &&
 						config.SSHPort == 2200 &&
-						config.Image == "localhost/l8s-fedora:latest" &&
+						config.BaseImage == "localhost/l8s-fedora:latest" &&
 						// Verify labels for metadata tracking
 						config.Labels["l8s.managed"] == "true" &&
 						config.Labels["l8s.git.url"] == "https://github.com/user/repo.git" &&
@@ -109,7 +44,7 @@ func TestManager_CreateContainer(t *testing.T) {
 					Status:   "created",
 					SSHPort:  2200,
 					GitURL:   "https://github.com/user/repo.git",
-					Branch:   "main",
+					GitBranch:   "main",
 					Labels: map[string]string{
 						"l8s.managed":   "true",
 						"l8s.git.url":   "https://github.com/user/repo.git",
@@ -209,8 +144,7 @@ func TestManager_ListContainers(t *testing.T) {
 			Status:   "running",
 			SSHPort:  2200,
 			GitURL:   "https://github.com/user/project1.git",
-			Branch:   "main",
-			Created:  "2024-01-01T10:00:00Z",
+			GitBranch:   "main",
 			Labels: map[string]string{
 				"l8s.managed":   "true",
 				"l8s.git.url":   "https://github.com/user/project1.git",
@@ -223,8 +157,7 @@ func TestManager_ListContainers(t *testing.T) {
 			Status:   "stopped",
 			SSHPort:  2201,
 			GitURL:   "https://github.com/user/project2.git",
-			Branch:   "develop",
-			Created:  "2024-01-02T10:00:00Z",
+			GitBranch:   "develop",
 			Labels: map[string]string{
 				"l8s.managed":   "true",
 				"l8s.git.url":   "https://github.com/user/project2.git",
@@ -325,12 +258,7 @@ func TestManager_GetContainerInfo(t *testing.T) {
 		Status:   "running",
 		SSHPort:  2200,
 		GitURL:   "https://github.com/user/repo.git",
-		Branch:   "main",
-		Created:  "2024-01-01T10:00:00Z",
-		Volumes: map[string]string{
-			"home":      "dev-myproject-home",
-			"workspace": "dev-myproject-workspace",
-		},
+		GitBranch:   "main",
 		Labels: map[string]string{
 			"l8s.managed":   "true",
 			"l8s.git.url":   "https://github.com/user/repo.git",

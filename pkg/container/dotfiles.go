@@ -11,6 +11,11 @@ import (
 
 // CopyDotfiles copies dotfiles from source directory to target directory
 func CopyDotfiles(sourceDir, targetDir, containerUser string) error {
+	// Check if source directory exists
+	if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
+		return fmt.Errorf("dotfiles directory not found: %s", sourceDir)
+	}
+	
 	// Walk through the source directory
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -28,8 +33,18 @@ func CopyDotfiles(sourceDir, targetDir, containerUser string) error {
 			return nil
 		}
 
-		// Check if we should copy this file
-		if !shouldCopyFile(filepath.Base(path)) {
+		// Check if we should copy this file/directory
+		// For nested paths, check if any parent is a dotfile directory
+		shouldCopy := false
+		pathParts := strings.Split(relPath, string(filepath.Separator))
+		for _, part := range pathParts {
+			if strings.HasPrefix(part, ".") {
+				shouldCopy = true
+				break
+			}
+		}
+		
+		if !shouldCopy {
 			// If it's a directory, skip the entire subtree
 			if info.IsDir() {
 				return filepath.SkipDir
@@ -54,6 +69,11 @@ func CopyDotfiles(sourceDir, targetDir, containerUser string) error {
 func shouldCopyFile(filename string) bool {
 	// Skip hidden directories that are version control related
 	if filename == ".git" || filename == ".svn" || filename == ".hg" {
+		return false
+	}
+
+	// Skip macOS metadata files
+	if filename == ".DS_Store" {
 		return false
 	}
 

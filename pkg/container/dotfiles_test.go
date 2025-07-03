@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -306,7 +307,7 @@ func TestCopyDotfilesToContainer(t *testing.T) {
 			}
 			
 			// Test copying to container
-			err := CopyDotfilesToContainer(mockClient, tt.containerName, 
+			err := CopyDotfilesToContainer(context.Background(), mockClient, tt.containerName, 
 				dotfilesDir, tt.containerUser)
 			
 			if tt.wantErr {
