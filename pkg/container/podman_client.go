@@ -52,17 +52,20 @@ Or run 'l8s init' to set up your configuration.
 Note: l8s ONLY supports remote container management for security isolation.`)
 	}
 	
-	// Build connection string
-	// Add ?sudo=true parameter to use sudo for non-root users
-	sudoParam := ""
-	if cfg.RemoteUser != "root" {
-		sudoParam = "?sudo=true"
-	}
-	connectionURI := fmt.Sprintf("ssh://%s@%s%s%s",
+	// Build connection string for SSH access to remote Podman
+	// 
+	// IMPORTANT: This uses the system (root) Podman socket at /run/podman/podman.sock
+	// 
+	// For this to work, the remote server must be configured with:
+	// 1. A 'podman' group that has access to the socket
+	// 2. The user must be a member of the 'podman' group
+	// 3. The socket must have group read/write permissions (660)
+	// 4. The /run/podman directory must be accessible (755)
+	//
+	// See docs/REMOTE_SERVER_SETUP.md for detailed setup instructions
+	connectionURI := fmt.Sprintf("ssh://%s@%s/run/podman/podman.sock",
 		cfg.RemoteUser,
 		cfg.RemoteHost,
-		cfg.RemoteSocket,
-		sudoParam,
 	)
 	
 	// Verify ssh-agent is running
@@ -76,12 +79,7 @@ Please start ssh-agent and add your key:
 l8s requires ssh-agent for secure remote connections.`, cfg.SSHKeyPath)
 	}
 	
-	// Set SSH key if specified
-	if cfg.SSHKeyPath != "" {
-		os.Setenv("CONTAINER_SSHKEY", cfg.SSHKeyPath)
-	}
-	
-	// Create connection
+	// Create connection using ssh-agent for authentication
 	ctx := context.Background()
 	conn, err := bindings.NewConnection(ctx, connectionURI)
 	if err != nil {
@@ -102,12 +100,15 @@ Error: %w
 
 Troubleshooting:
 1. Verify SSH access: ssh %s@%s
-2. Check Podman socket is running: systemctl --user status podman.socket
-3. Ensure user has Podman permissions
-4. Check ~/.config/l8s/config.yaml settings
+2. Check Podman socket is running: sudo systemctl status podman.socket
+3. Ensure user is in 'podman' group: ssh %s@%s "groups"
+4. Check socket permissions: ssh %s@%s "ls -la /run/podman/podman.sock"
+5. Verify ssh-agent has your key: ssh-add -l
 
-For setup instructions, see: https://github.com/l8s/l8s/docs/REMOTE_SETUP.md`,
+For detailed setup instructions, see: docs/REMOTE_SERVER_SETUP.md`,
 			cfg.RemoteHost, cfg.RemoteUser, cfg.RemoteSocket, err,
+			cfg.RemoteUser, cfg.RemoteHost,
+			cfg.RemoteUser, cfg.RemoteHost,
 			cfg.RemoteUser, cfg.RemoteHost)
 	}
 	

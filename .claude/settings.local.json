@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(ssh:*)",
+      "Bash(./l8s create:*)",
+      "Bash(grep:*)",
+      "Bash(go run:*)",
+      "Bash(go build:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

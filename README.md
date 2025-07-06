@@ -59,6 +59,7 @@ graph LR
 - Podman 4.0+ (running as root)
 - SSH server
 - libgpgme-dev (or gpgme-devel on Fedora/RHEL)
+- Proper permissions setup - see [Remote Server Setup Guide](docs/REMOTE_SERVER_SETUP.md)
 
 ## Installation
 
@@ -102,14 +103,22 @@ Coming soon!
 
 ### 1. Set Up Remote Server
 
-On your remote server (preferably in an LXC container):
+**Important**: Your remote server needs proper permissions configured for l8s to work correctly.
 
+See the [Remote Server Setup Guide](docs/REMOTE_SERVER_SETUP.md) for detailed instructions on:
+- Installing Podman
+- Creating a podman group for socket access
+- Configuring proper permissions
+- Setting up SSH access
+- Troubleshooting common issues
+
+Quick setup for Fedora/RHEL:
 ```bash
 # Install Podman
 sudo dnf install -y podman
 
-# Enable Podman socket
-sudo systemctl enable --now podman.socket
+# Follow the full setup guide for permissions configuration
+# See: docs/REMOTE_SERVER_SETUP.md
 ```
 
 ### 2. Configure L8s
