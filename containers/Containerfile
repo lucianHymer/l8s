@@ -48,14 +48,14 @@ WORKDIR /home/${CONTAINER_USER}
 # Install oh-my-zsh
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
-# Install global npm packages as user
-RUN npm install -g @anthropic-ai/claude-code
-
-# Switch back to root for SSH setup
+# Switch back to root for global npm installs and SSH setup
 USER root
 
+# Install global npm packages
+RUN npm install -g @anthropic-ai/claude-code
+
 # Configure SSH
-RUN mkdir /var/run/sshd && \
+RUN mkdir -p /var/run/sshd && \
     ssh-keygen -A && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \

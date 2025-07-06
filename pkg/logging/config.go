@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -42,8 +43,10 @@ func NewLogger(cfg Config) (*slog.Logger, error) {
 		Level: level,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.SourceKey {
-				source := a.Value.Any().(*slog.Source)
-				return slog.String("source", source.File+":"+string(rune(source.Line)))
+				source, ok := a.Value.Any().(*slog.Source)
+				if ok && source != nil {
+					return slog.String("source", fmt.Sprintf("%s:%d", source.File, source.Line))
+				}
 			}
 			return a
 		},

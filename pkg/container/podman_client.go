@@ -10,13 +10,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/containers/podman/v5/pkg/bindings"
 	"github.com/containers/podman/v5/pkg/bindings/containers"
-	"github.com/containers/podman/v5/pkg/bindings/images"
 	"github.com/containers/podman/v5/pkg/bindings/system"
 	"github.com/containers/podman/v5/pkg/specgen"
 	"github.com/containers/podman/v5/pkg/api/handlers"
@@ -305,8 +306,10 @@ func (c *RealPodmanClient) FindAvailablePort(startPort int) (int, error) {
 
 // ExecContainer executes a command in a container
 func (c *RealPodmanClient) ExecContainer(ctx context.Context, name string, cmd []string) error {
-	// Create exec session
-	// In Podman v5, ExecCreate takes ExecCreateConfig from handlers
+	// Create output buffers
+	var stdout, stderr bytes.Buffer
+	
+	// Create exec session with output capture
 	attachStderr := true
 	attachStdout := true
 	execConfig := &handlers.ExecCreateConfig{
@@ -322,26 +325,52 @@ func (c *RealPodmanClient) ExecContainer(ctx context.Context, name string, cmd [
 		return fmt.Errorf("failed to create exec session: %w", err)
 	}
 
-	// Start the exec session
-	if err := containers.ExecStart(c.conn, execID, nil); err != nil {
-		return fmt.Errorf("failed to start exec session: %w", err)
+	// Start and attach to capture output
+	outWriter := io.Writer(&stdout)
+	errWriter := io.Writer(&stderr)
+	attachOptions := &containers.ExecStartAndAttachOptions{
+		OutputStream: &outWriter,
+		ErrorStream:  &errWriter,
+		AttachOutput: &attachStdout,
+		AttachError:  &attachStderr,
+	}
+	
+	if err := containers.ExecStartAndAttach(c.conn, execID, attachOptions); err != nil {
+		// If attach fails, try regular start
+		if err := containers.ExecStart(c.conn, execID, nil); err != nil {
+			return fmt.Errorf("failed to start exec session: %w", err)
+		}
+		
+		// Wait for completion
+		for {
+			inspect, err := containers.ExecInspect(c.conn, execID, nil)
+			if err != nil {
+				return fmt.Errorf("failed to inspect exec session: %w", err)
+			}
+
+			if !inspect.Running {
+				if inspect.ExitCode != 0 {
+					return fmt.Errorf("command exited with code %d", inspect.ExitCode)
+				}
+				break
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	
+	// Check exit status
+	inspect, err := containers.ExecInspect(c.conn, execID, nil)
+	if err != nil {
+		return fmt.Errorf("failed to inspect exec session: %w", err)
 	}
 
-	// Wait for completion
-	for {
-		inspect, err := containers.ExecInspect(c.conn, execID, nil)
-		if err != nil {
-			return fmt.Errorf("failed to inspect exec session: %w", err)
+	if inspect.ExitCode != 0 {
+		errOutput := strings.TrimSpace(stderr.String())
+		if errOutput != "" {
+			return fmt.Errorf("command exited with code %d: %s", inspect.ExitCode, errOutput)
 		}
-
-		if !inspect.Running {
-			if inspect.ExitCode != 0 {
-				return fmt.Errorf("command exited with code %d", inspect.ExitCode)
-			}
-			break
-		}
-
-		time.Sleep(100 * time.Millisecond)
+		return fmt.Errorf("command exited with code %d", inspect.ExitCode)
 	}
 
 	return nil
@@ -458,30 +487,43 @@ func (c *RealPodmanClient) CopyToContainer(ctx context.Context, name string, src
 	return nil
 }
 
-// BuildImage builds the container image
+// BuildImage builds the container image on the remote server
 func BuildImage(ctx context.Context, containerfilePath, imageName string) error {
-	client, err := NewPodmanClient()
+	// Load configuration to get remote details
+	cfg, err := config.Load(config.GetConfigPath())
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Open Containerfile
-	containerfile, err := os.Open(containerfilePath)
-	if err != nil {
-		return fmt.Errorf("failed to open Containerfile: %w", err)
+	// Create a temporary directory on the remote server
+	tempDir := fmt.Sprintf("/tmp/l8s-build-%d", time.Now().Unix())
+	mkdirCmd := fmt.Sprintf("ssh %s@%s 'mkdir -p %s'", cfg.RemoteUser, cfg.RemoteHost, tempDir)
+	if err := runCommand(mkdirCmd); err != nil {
+		return fmt.Errorf("failed to create temp directory on remote: %w", err)
 	}
-	defer containerfile.Close()
-
-	// Create build options
-	// In Podman v5, BuildOptions is complex - for now, just use empty options
-	// The image name will be derived from the Containerfile
-	buildOptions := images.BuildOptions{}
-
-	// Build the image
-	_, err = images.Build(client.conn, []string{containerfilePath}, buildOptions)
-	if err != nil {
-		return fmt.Errorf("failed to build image: %w", err)
+	
+	// Copy the Containerfile to the remote server
+	remotePath := filepath.Join(tempDir, "Containerfile")
+	scpCmd := fmt.Sprintf("scp %s %s@%s:%s", containerfilePath, cfg.RemoteUser, cfg.RemoteHost, remotePath)
+	if err := runCommand(scpCmd); err != nil {
+		return fmt.Errorf("failed to copy Containerfile to remote: %w", err)
+	}
+	
+	// Build the image on the remote server using sudo podman with container user
+	buildCmd := fmt.Sprintf("ssh %s@%s 'sudo podman build --build-arg CONTAINER_USER=%s -t %s %s && rm -rf %s'", 
+		cfg.RemoteUser, cfg.RemoteHost, cfg.ContainerUser, imageName, tempDir, tempDir)
+	
+	if err := runCommand(buildCmd); err != nil {
+		return fmt.Errorf("failed to build image on remote: %w", err)
 	}
 
 	return nil
+}
+
+// runCommand executes a shell command and returns any error
+func runCommand(cmd string) error {
+	execCmd := exec.Command("sh", "-c", cmd)
+	execCmd.Stdout = os.Stdout
+	execCmd.Stderr = os.Stderr
+	return execCmd.Run()
 }

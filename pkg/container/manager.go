@@ -404,17 +404,19 @@ func (m *Manager) SSHIntoContainer(ctx context.Context, name string) error {
 	return sshCmd.Run()
 }
 
-// BuildImage builds the container image
+// BuildImage builds the container image on the remote server
 func (m *Manager) BuildImage(ctx context.Context, containerfile string) error {
 	// Check if containerfile exists
 	if _, err := os.Stat(containerfile); err != nil {
 		return fmt.Errorf("containerfile not found: %w", err)
 	}
 	
-	// Build the image using podman build
-	buildCmd := exec.Command("podman", "build", "-f", containerfile, "-t", m.config.BaseImage, ".")
-	buildCmd.Stdout = os.Stdout
-	buildCmd.Stderr = os.Stderr
+	// Get absolute path
+	absPath, err := filepath.Abs(containerfile)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path: %w", err)
+	}
 	
-	return buildCmd.Run()
+	// Build the image on the remote server
+	return BuildImage(ctx, absPath, m.config.BaseImage)
 }
