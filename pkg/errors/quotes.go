@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/user"
 	"strings"
-	"time"
 )
 
 var lebowskiQuotes = []string{
@@ -19,10 +18,7 @@ var lebowskiQuotes = []string{
 	"Calmer than you are",
 }
 
-func init() {
-	// Seed the random number generator
-	rand.Seed(time.Now().UnixNano())
-}
+// No need for init() - Go 1.20+ auto-seeds rand
 
 // LebowskiError returns a random Big Lebowski quote as an error message
 func LebowskiError() string {
