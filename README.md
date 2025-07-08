@@ -27,7 +27,7 @@ graph LR
     subgraph "Remote Server"
         subgraph "LXC Container (Fedora)"
             SSHD[SSH Daemon]
-            PODMAN[Podman<br/>(running as root)]
+            PODMAN[Podman - running as root]
             SOCKET[/run/podman/podman.sock]
             subgraph "Dev Containers"
                 C1[Container 1]
@@ -105,11 +105,10 @@ Coming soon!
 On your remote server (preferably in an LXC container):
 
 ```bash
-# Download and run the setup script
-curl -fsSL https://raw.githubusercontent.com/l8s/l8s/main/scripts/setup-server.sh | sudo bash
-
-# Or manually:
+# Install Podman
 sudo dnf install -y podman
+
+# Enable Podman socket
 sudo systemctl enable --now podman.socket
 ```
 
