@@ -8,6 +8,7 @@ RUN dnf update -y && \
         neovim \
         zsh \
         tmux \
+        dtach \
         gcc \
         gcc-c++ \
         make \
