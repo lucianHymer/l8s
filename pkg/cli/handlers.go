@@ -8,9 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"text/tabwriter"
 	"time"
 
+	"github.com/juju/ansiterm"
 	"github.com/l8s/l8s/pkg/color"
 	"github.com/l8s/l8s/pkg/config"
 	"github.com/spf13/cobra"
@@ -91,8 +91,8 @@ func (f *CommandFactory) runList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Create table writer
-	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
+	// Create color-aware table writer using juju/ansiterm
+	w := ansiterm.NewTabWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
 	
 	// Print header in bold
 	if os.Getenv("NO_COLOR") == "" {
