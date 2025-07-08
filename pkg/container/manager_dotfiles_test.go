@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/l8s/l8s/pkg/logging"
+	"l8s/pkg/logging"
 	"github.com/stretchr/testify/mock"
 )
 

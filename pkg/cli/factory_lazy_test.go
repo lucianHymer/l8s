@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/l8s/l8s/pkg/config"
-	"github.com/l8s/l8s/pkg/container"
+	"l8s/pkg/config"
+	"l8s/pkg/container"
 	"github.com/stretchr/testify/assert"
 )
 

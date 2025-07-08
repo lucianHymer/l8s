@@ -13,9 +13,9 @@ import (
 
 	"net"
 
-	"github.com/l8s/l8s/pkg/container"
-	"github.com/l8s/l8s/pkg/git"
-	"github.com/l8s/l8s/pkg/ssh"
+	"l8s/pkg/container"
+	"l8s/pkg/git"
+	"l8s/pkg/ssh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

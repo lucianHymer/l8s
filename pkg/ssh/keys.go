@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/l8s/l8s/pkg/config"
+	"l8s/pkg/config"
 )
 
 // ReadPublicKey reads an SSH public key from a file

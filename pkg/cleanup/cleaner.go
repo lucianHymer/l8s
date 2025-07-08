@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/l8s/l8s/pkg/logging"
+	"l8s/pkg/logging"
 )
 
 type CleanupFunc func(context.Context) error

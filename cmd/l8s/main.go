@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/l8s/l8s/pkg/cli"
-	"github.com/l8s/l8s/pkg/errors"
-	"github.com/l8s/l8s/pkg/logging"
+	"l8s/pkg/cli"
+	"l8s/pkg/errors"
+	"l8s/pkg/logging"
 	"github.com/spf13/cobra"
 )
 

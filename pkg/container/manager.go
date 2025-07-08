@@ -11,11 +11,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/l8s/l8s/pkg/cleanup"
-	"github.com/l8s/l8s/pkg/embed"
-	"github.com/l8s/l8s/pkg/git"
-	"github.com/l8s/l8s/pkg/logging"
-	"github.com/l8s/l8s/pkg/ssh"
+	"l8s/pkg/cleanup"
+	"l8s/pkg/embed"
+	"l8s/pkg/git"
+	"l8s/pkg/logging"
+	"l8s/pkg/ssh"
 )
 
 // Manager handles container operations

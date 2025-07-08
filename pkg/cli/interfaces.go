@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 
-	"github.com/l8s/l8s/pkg/container"
+	"l8s/pkg/container"
 )
 
 // ContainerManager defines the interface for container management operations

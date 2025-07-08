@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/juju/ansiterm"
-	"github.com/l8s/l8s/pkg/color"
-	"github.com/l8s/l8s/pkg/config"
+	"l8s/pkg/color"
+	"l8s/pkg/config"
 	"github.com/spf13/cobra"
 )
 

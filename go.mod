@@ -1,4 +1,4 @@
-module github.com/l8s/l8s
+module l8s
 
 go 1.24
 
