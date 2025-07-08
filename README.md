@@ -19,8 +19,24 @@ L8s is a Podman-based development container management tool that creates isolate
 - Go 1.21+ (for building from source)
 - SSH client
 - Git
+- libgpgme-dev (or gpgme-devel on Fedora/RHEL)
 
 ## Installation
+
+### Prerequisites
+
+Install system dependencies:
+
+```bash
+# Fedora/RHEL/CentOS
+sudo dnf install -y gpgme-devel
+
+# Ubuntu/Debian
+sudo apt-get update && sudo apt-get install -y libgpgme-dev
+
+# macOS (using Homebrew)
+brew install gpgme
+```
 
 ### From Source
 

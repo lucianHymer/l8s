@@ -42,7 +42,7 @@ help: ## Show this help message
 all: clean test build ## Clean, test, and build
 
 .PHONY: build
-build: ## Build the l8s binary
+build: check-deps ## Build the l8s binary
 	@echo "🎳 Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
 	$(GOBUILD) $(GOFLAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
@@ -163,8 +163,26 @@ check-podman: ## Check if Podman is installed
 		exit 1; \
 	fi
 
+.PHONY: check-deps
+check-deps: ## Check build dependencies
+	@echo "🔍 Checking build dependencies..."
+	@if ! command -v $(GO) >/dev/null 2>&1; then \
+		echo "❌ Go is not installed"; \
+		echo "Please install Go 1.21+: https://go.dev/dl/"; \
+		exit 1; \
+	fi
+	@if ! pkg-config --exists gpgme 2>/dev/null; then \
+		echo "❌ gpgme is not installed"; \
+		echo "Please install gpgme development package:"; \
+		echo "  Fedora/RHEL: sudo dnf install -y gpgme-devel"; \
+		echo "  Ubuntu/Debian: sudo apt-get install -y libgpgme-dev"; \
+		echo "  macOS: brew install gpgme"; \
+		exit 1; \
+	fi
+	@echo "✓ All build dependencies are installed"
+
 .PHONY: setup
-setup: deps check-podman ## Initial project setup
+setup: check-deps deps check-podman ## Initial project setup
 	@echo "🔧 Setting up development environment..."
 	@echo "✓ Setup complete"
 
