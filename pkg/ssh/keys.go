@@ -196,12 +196,12 @@ func FindSSHPublicKey() (string, error) {
 	homeDir := GetHomeDir()
 	sshDir := filepath.Join(homeDir, ".ssh")
 
-	// Common SSH public key filenames in order of preference
+	// Common SSH public key filenames (alphabetical order)
 	keyFiles := []string{
+		"id_dsa.pub",
+		"id_ecdsa.pub",
 		"id_ed25519.pub",
 		"id_rsa.pub",
-		"id_ecdsa.pub",
-		"id_dsa.pub",
 	}
 
 	for _, keyFile := range keyFiles {
