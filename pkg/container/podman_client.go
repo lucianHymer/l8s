@@ -84,12 +84,59 @@ l8s requires ssh-agent for secure remote connections.`, cfg.SSHKeyPath)
 	ctx := context.Background()
 	conn, err := bindings.NewConnection(ctx, connectionURI)
 	if err != nil {
+		// Check if this is an SSH authentication error
+		errStr := err.Error()
+		if strings.Contains(errStr, "handshake failed") || strings.Contains(errStr, "unable to authenticate") {
+			return nil, fmt.Errorf(`SSH authentication failed.
+
+Connection details:
+  Host: %s
+  User: %s
+
+Error: %w
+
+This error typically occurs when:
+1. ssh-agent is not running (already checked - it's running)
+2. Your SSH key is not added to ssh-agent
+3. The SSH key doesn't match the server's authorized_keys
+
+Please ensure your SSH key is added to ssh-agent:
+  ssh-add -l  # List keys in agent
+  ssh-add %s  # Add your key if not listed
+
+Also verify you can SSH directly to the server:
+  ssh %s@%s`, cfg.RemoteHost, cfg.RemoteUser, err, cfg.SSHKeyPath, cfg.RemoteUser, cfg.RemoteHost)
+		}
 		return nil, fmt.Errorf("failed to connect to remote Podman at %s: %w", cfg.RemoteHost, err)
 	}
 	
 	// Test connection
 	_, err = system.Info(conn, nil)
 	if err != nil {
+		// Check if this is also an SSH authentication error
+		errStr := err.Error()
+		if strings.Contains(errStr, "handshake failed") || strings.Contains(errStr, "unable to authenticate") {
+			return nil, fmt.Errorf(`SSH authentication failed during connection test.
+
+Connection details:
+  Host: %s
+  User: %s
+
+Error: %w
+
+This error typically occurs when:
+1. ssh-agent is not running (already checked - it's running)
+2. Your SSH key is not added to ssh-agent
+3. The SSH key doesn't match the server's authorized_keys
+
+Please ensure your SSH key is added to ssh-agent:
+  ssh-add -l  # List keys in agent
+  ssh-add %s  # Add your key if not listed
+
+Also verify you can SSH directly to the server:
+  ssh %s@%s`, cfg.RemoteHost, cfg.RemoteUser, err, cfg.SSHKeyPath, cfg.RemoteUser, cfg.RemoteHost)
+		}
+		
 		return nil, fmt.Errorf(`failed to connect to Podman on remote server.
 
 Connection details:
