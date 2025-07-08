@@ -288,9 +288,9 @@ func (c *RealPodmanClient) RemoveContainer(ctx context.Context, name string, rem
 		// Use exec to run podman volume rm commands
 		// We ignore errors as volumes might not exist or might have been removed
 		exec.Command("ssh", fmt.Sprintf("%s@%s", c.remoteUser, c.remoteHost), 
-			"podman", "volume", "rm", "-f", homeVolume).Run()
+			"sudo", "podman", "volume", "rm", "-f", homeVolume).Run()
 		exec.Command("ssh", fmt.Sprintf("%s@%s", c.remoteUser, c.remoteHost), 
-			"podman", "volume", "rm", "-f", workspaceVolume).Run()
+			"sudo", "podman", "volume", "rm", "-f", workspaceVolume).Run()
 	}
 	
 	return nil

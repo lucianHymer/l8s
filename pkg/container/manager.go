@@ -127,6 +127,15 @@ func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, ssh
 		return nil, fmt.Errorf("failed to setup SSH: %w", err)
 	}
 
+	// Fix home directory permissions before copying dotfiles
+	homeDir := fmt.Sprintf("/home/%s", m.config.ContainerUser)
+	chownCmd := []string{"chown", "-R", fmt.Sprintf("%s:%s", m.config.ContainerUser, m.config.ContainerUser), homeDir}
+	if err := m.client.ExecContainer(ctx, containerName, chownCmd); err != nil {
+		m.logger.Warn("failed to fix home directory ownership",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
+	}
+
 	// Copy dotfiles
 	if err := m.copyDotfiles(ctx, containerName); err != nil {
 		// Log error but don't fail container creation
@@ -378,6 +387,16 @@ func (m *Manager) applyHostGitConfig(ctx context.Context, containerName string) 
 
 // cloneRepository clones the git repository in the container
 func (m *Manager) cloneRepository(ctx context.Context, containerName, gitURL, branch string) error {
+	// Check if project directory already exists
+	checkCmd := []string{"test", "-d", "/workspace/project"}
+	if err := m.client.ExecContainer(ctx, containerName, checkCmd); err == nil {
+		// Directory exists, skip cloning
+		m.logger.Warn("project directory already exists, skipping clone - this is likely from a previous container with --keep-volumes. Please verify it contains what you expect or remove and recreate the container without --keep-volumes",
+			logging.WithField("container", containerName),
+			logging.WithField("path", "/workspace/project"))
+		return nil
+	}
+
 	// Run git clone as the container user using su
 	cloneCmd := []string{"su", "-", m.config.ContainerUser, "-c", 
 		fmt.Sprintf("git clone -b %s %s /workspace/project", branch, gitURL)}
