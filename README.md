@@ -1,8 +1,10 @@
-# L8s (Lebowskis) 🎳
+# 🎳 Lebowskis (aka `l8s`)
 
 > "The container management system that really ties the room together"
 
-L8s is a Podman-based development container management tool that creates isolated, SSH-accessible development environments. Each container is a fully-featured Linux environment with development tools, accessible via SSH using key-based authentication.
+l8s is a **remote-only** Podman-based development container management tool that creates isolated, SSH-accessible development environments on dedicated servers. Each container is a fully-featured Linux environment with development tools, accessible via SSH using key-based authentication.
+
+**Security Note**: L8s ONLY supports remote container management. This design ensures all code execution happens on dedicated servers, providing complete isolation from developer laptops - perfect for AI workloads and untrusted code.
 
 ## Features
 
@@ -12,13 +14,50 @@ L8s is a Podman-based development container management tool that creates isolate
 - **🚀 Fast**: Containers ready in seconds
 - **🛠️ Developer-Friendly**: Pre-configured with modern development tools
 
+## Architecture
+
+```mermaid
+graph LR
+    subgraph "Developer Laptop"
+        L8S[l8s CLI]
+        SSH_AGENT[ssh-agent]
+        CONFIG[~/.config/l8s/config.yaml]
+    end
+    
+    subgraph "Remote Server"
+        subgraph "LXC Container (Fedora)"
+            SSHD[SSH Daemon]
+            PODMAN[Podman<br/>(running as root)]
+            SOCKET[/run/podman/podman.sock]
+            subgraph "Dev Containers"
+                C1[Container 1]
+                C2[Container 2]
+                C3[Container N]
+            end
+        end
+    end
+    
+    L8S -->|SSH Tunnel| SSHD
+    SSHD --> PODMAN
+    PODMAN --> SOCKET
+    PODMAN --> C1
+    PODMAN --> C2
+    PODMAN --> C3
+    SSH_AGENT -.->|provides auth| L8S
+    CONFIG -.->|configures| L8S
+```
+
 ## Requirements
 
-- Linux (tested on Fedora)
-- Podman 4.0+
+### On Your Laptop
+- SSH client with ssh-agent
 - Go 1.21+ (for building from source)
-- SSH client
 - Git
+
+### On Remote Server (LXC Container Recommended)
+- Linux (tested on Fedora in LXC)
+- Podman 4.0+ (running as root)
+- SSH server
 - libgpgme-dev (or gpgme-devel on Fedora/RHEL)
 
 ## Installation
@@ -61,15 +100,42 @@ Coming soon!
 
 ## Quick Start
 
-### 1. Build the Container Image
+### 1. Set Up Remote Server
 
-First, build the base container image:
+On your remote server (preferably in an LXC container):
+
+```bash
+# Download and run the setup script
+curl -fsSL https://raw.githubusercontent.com/l8s/l8s/main/scripts/setup-server.sh | sudo bash
+
+# Or manually:
+sudo dnf install -y podman
+sudo systemctl enable --now podman.socket
+```
+
+### 2. Configure L8s
+
+On your laptop:
+
+```bash
+# Initialize l8s with your remote server
+l8s init
+
+# You'll be prompted for:
+# - Remote server hostname/IP
+# - Remote username (typically 'root' in LXC)
+# - SSH key configuration
+```
+
+### 3. Build the Container Image
+
+Build the base container image on the remote server:
 
 ```bash
 l8s build
 ```
 
-### 2. Create a Development Container
+### 4. Create a Development Container
 
 Create a new container with your Git repository:
 
@@ -152,20 +218,18 @@ l8s build
 L8s uses a YAML configuration file located at `~/.config/l8s/config.yaml`:
 
 ```yaml
-# Starting port for SSH mappings
+# Remote server configuration (REQUIRED)
+remote_host: "server.example.com"
+remote_user: "root"
+remote_socket: "/run/podman/podman.sock"
+ssh_key_path: "~/.ssh/id_ed25519"
+
+# Container configuration
 ssh_port_start: 2200
-
-# Container image to use
 base_image: "localhost/l8s-fedora:latest"
-
-# Container name prefix
 container_prefix: "dev"
-
-# Container username (customizable!)
-container_user: "dev"  # Can be your username
-
-# SSH public key (auto-detected if empty)
-ssh_public_key: ""
+container_user: "dev"
+ssh_public_key: ""  # Auto-detected if empty
 ```
 
 ## Container Features
@@ -184,12 +248,18 @@ L8s automatically manages your `~/.ssh/config` file, adding entries like:
 
 ```
 Host dev-myproject
-    HostName localhost
+    HostName server.example.com
     Port 2200
     User dev
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
+    ForwardAgent yes
+    ControlMaster auto
+    ControlPath ~/.ssh/control-%r@%h:%p
+    ControlPersist 10m
 ```
+
+**Performance Note**: SSH connections are multiplexed using ControlMaster, so subsequent connections reuse the existing tunnel for instant access.
 
 This enables convenient access:
 - `ssh dev-myproject` - Direct SSH access
@@ -238,16 +308,38 @@ Each container has persistent volumes:
 
 Data persists between container restarts.
 
+## Migration from Local Containers
+
+**BREAKING CHANGE**: L8s no longer supports local containers. To migrate:
+
+1. Set up a remote server with Podman
+2. Run `l8s init` to configure the remote connection
+3. Recreate your containers on the remote server
+4. Update any scripts that assumed local container access
+
+## Security Considerations
+
+1. **Remote-Only Design**: All containers run on dedicated servers, never locally
+2. **LXC Isolation**: Run Podman inside LXC containers for additional isolation
+3. **SSH Key Auth**: No password authentication, ssh-agent required
+4. **Root Podman**: Runs as root inside isolated LXC container (not on host)
+
 ## Troubleshooting
 
+### Initial Setup Issues
+- Run `l8s init` to configure remote server connection
+- Ensure SSH key is added: `ssh-add ~/.ssh/id_ed25519`
+- Test SSH access: `ssh root@your-server`
+- Verify Podman socket: `ssh root@your-server systemctl status podman.socket`
+
 ### Container Creation Fails
-- Ensure Podman is installed: `podman --version`
-- Check if the base image exists: `podman images | grep l8s`
+- Check remote connection: `ssh root@your-server podman version`
+- Ensure base image exists: `ssh root@your-server podman images | grep l8s`
 - Rebuild the image: `l8s build`
 
 ### SSH Connection Refused
 - Check if container is running: `l8s list`
-- Verify SSH port is available: `ss -tlnp | grep 2200`
+- Verify SSH port on remote: `ssh root@your-server ss -tlnp | grep 2200`
 - Start the container: `l8s start <name>`
 
 ### Git Push/Pull Issues
