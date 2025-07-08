@@ -71,12 +71,17 @@ func (f *LazyCommandFactory) ensureInitialized() error {
 // CreateCmd returns the create command with lazy initialization
 func (f *LazyCommandFactory) CreateCmd() *cobra.Command {
 	var dotfilesPath string
+	var branch string
 	
 	cmd := &cobra.Command{
-		Use:   "create <name> <git-url> [branch]",
+		Use:   "create <name>",
 		Short: "Create a new development container",
-		Long:  `Creates a new development container with SSH access and clones the specified git repository.`,
-		Args:  cobra.RangeArgs(2, 3),
+		Long:  `Creates a new development container from the current git repository.
+
+The container will be initialized with an empty git repository configured to receive pushes.
+The current branch (or specified branch) will be pushed to populate the container.
+A git remote will be added to your local repository for easy code synchronization.`,
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -101,6 +106,7 @@ func (f *LazyCommandFactory) CreateCmd() *cobra.Command {
 	}
 	
 	cmd.Flags().StringVar(&dotfilesPath, "dotfiles-path", "", "Path to dotfiles directory to copy to the container")
+	cmd.Flags().StringVar(&branch, "branch", "", "Git branch to push to the container (defaults to current branch)")
 	
 	return cmd
 }

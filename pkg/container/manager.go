@@ -152,10 +152,18 @@ func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, ssh
 			logging.WithField("container", containerName))
 	}
 
-	// Clone git repository
-	if err := m.cloneRepository(ctx, containerName, gitURL, branch); err != nil {
-		cleaner.Cleanup(ctx)
-		return nil, fmt.Errorf("failed to clone repository: %w", err)
+	// Initialize git repository (only if gitURL is empty - new flow)
+	if gitURL == "" {
+		if err := m.initializeGitRepository(ctx, containerName); err != nil {
+			cleaner.Cleanup(ctx)
+			return nil, fmt.Errorf("failed to initialize repository: %w", err)
+		}
+	} else {
+		// Legacy flow - clone repository
+		if err := m.cloneRepository(ctx, containerName, gitURL, branch); err != nil {
+			cleaner.Cleanup(ctx)
+			return nil, fmt.Errorf("failed to clone repository: %w", err)
+		}
 	}
 
 	// Add SSH config entry
@@ -382,6 +390,62 @@ func (m *Manager) applyHostGitConfig(ctx context.Context, containerName string) 
 		}
 	}
 	
+	return nil
+}
+
+// initializeGitRepository initializes an empty git repository in the container
+func (m *Manager) initializeGitRepository(ctx context.Context, containerName string) error {
+	// Check if project directory already exists
+	checkCmd := []string{"test", "-d", "/workspace/project"}
+	if err := m.client.ExecContainer(ctx, containerName, checkCmd); err == nil {
+		// Directory exists, check if it's already a git repo
+		checkGitCmd := []string{"test", "-d", "/workspace/project/.git"}
+		if err := m.client.ExecContainer(ctx, containerName, checkGitCmd); err == nil {
+			m.logger.Warn("project directory already exists with git repo, skipping init - this is likely from a previous container with --keep-volumes",
+				logging.WithField("container", containerName),
+				logging.WithField("path", "/workspace/project"))
+			return nil
+		}
+	}
+
+	m.logger.Info("initializing empty git repository",
+		logging.WithField("container", containerName),
+		logging.WithField("path", "/workspace/project"))
+
+	// Create project directory if it doesn't exist
+	mkdirCmd := []string{"su", "-", m.config.ContainerUser, "-c",
+		"mkdir -p /workspace/project"}
+	if err := m.client.ExecContainer(ctx, containerName, mkdirCmd); err != nil {
+		return fmt.Errorf("failed to create project directory: %w", err)
+	}
+
+	// Initialize git repository as the container user
+	initCmd := []string{"su", "-", m.config.ContainerUser, "-c",
+		"cd /workspace/project && git init"}
+	if err := m.client.ExecContainer(ctx, containerName, initCmd); err != nil {
+		return fmt.Errorf("failed to initialize git repository: %w", err)
+	}
+
+	// Configure git to accept pushes with working tree updates
+	configCmd := []string{"su", "-", m.config.ContainerUser, "-c",
+		"cd /workspace/project && git config receive.denyCurrentBranch updateInstead"}
+	if err := m.client.ExecContainer(ctx, containerName, configCmd); err != nil {
+		return fmt.Errorf("failed to configure git for push: %w", err)
+	}
+
+	// Set default branch to main
+	setBranchCmd := []string{"su", "-", m.config.ContainerUser, "-c",
+		"cd /workspace/project && git config init.defaultBranch main"}
+	if err := m.client.ExecContainer(ctx, containerName, setBranchCmd); err != nil {
+		// Not critical, just log warning
+		m.logger.Warn("failed to set default branch to main",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
+	}
+
+	m.logger.Info("git repository initialized successfully",
+		logging.WithField("container", containerName))
+
 	return nil
 }
 

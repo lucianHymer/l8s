@@ -26,8 +26,11 @@ type GitClient interface {
 	RemoveRemote(repoPath, remoteName string) error
 	ListRemotes(repoPath string) (map[string]string, error)
 	SetUpstream(repoPath, remoteName, branch string) error
-	CurrentBranch(repoPath string) (string, error)
+	GetCurrentBranch(repoPath string) (string, error)
 	ValidateGitURL(gitURL string) error
+	IsGitRepository(path string) bool
+	PushBranch(repoPath, branch, remoteName string, force bool) error
+	InitRepository(repoPath string, allowPush bool, defaultBranch string) error
 }
 
 // SSHClient defines the interface for SSH operations

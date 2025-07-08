@@ -19,10 +19,20 @@ import (
 // runCreate handles the create command
 func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 	name := args[0]
-	gitURL := args[1]
-	branch := "main"
-	if len(args) > 2 {
-		branch = args[2]
+	
+	// Check if we're in a git repository
+	if !f.GitClient.IsGitRepository(".") {
+		return fmt.Errorf("l8s create must be run from within a git repository")
+	}
+	
+	// Get branch from flag or use current branch
+	branch, _ := cmd.Flags().GetString("branch")
+	if branch == "" {
+		currentBranch, err := f.GitClient.GetCurrentBranch(".")
+		if err != nil {
+			return fmt.Errorf("failed to get current branch: %w", err)
+		}
+		branch = currentBranch
 	}
 
 	// Find SSH key
@@ -46,27 +56,59 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid SSH public key: %w", err)
 	}
 
-	// Create container
+	// Create container with empty git URL
 	color.Printf("🎳 {cyan}Creating container:{reset} {bold}%s-%s{reset}\n", f.Config.ContainerPrefix, name)
 	
 	ctx := context.Background()
-	cont, err := f.ContainerMgr.CreateContainer(ctx, name, gitURL, branch, sshKey)
+	cont, err := f.ContainerMgr.CreateContainer(ctx, name, "", "", sshKey)
 	if err != nil {
 		return err
 	}
 
+	// Add git remote to local repository
+	remoteURL := fmt.Sprintf("%s-%s:/workspace/project", f.Config.ContainerPrefix, name)
+	if err := f.GitClient.AddRemote(".", name, remoteURL); err != nil {
+		// If we fail to add the remote, try to clean up the container
+		color.Printf("{red}✗{reset} Failed to add git remote: %v\n", err)
+		color.Printf("{yellow}!{reset} Cleaning up container...\n")
+		_ = f.ContainerMgr.RemoveContainer(ctx, name, true)
+		return fmt.Errorf("failed to add git remote: %w", err)
+	}
+
+	// Push the branch to the container
+	color.Printf("{cyan}→{reset} Pushing {bold}%s{reset} branch to container...\n", branch)
+	if err := f.GitClient.PushBranch(".", branch, name, false); err != nil {
+		// If push fails, clean up remote but keep container (user might want to debug)
+		color.Printf("{red}✗{reset} Failed to push code: %v\n", err)
+		_ = f.GitClient.RemoveRemote(".", name)
+		color.Printf("{yellow}!{reset} Container created but code push failed\n")
+		color.Printf("{yellow}!{reset} You may need to manually push or remove the container\n")
+		return fmt.Errorf("failed to push initial code: %w", err)
+	}
+
 	// Display success message
 	color.Printf("{green}✓{reset} SSH port: {bold}%d{reset}\n", cont.SSHPort)
-	color.Printf("{green}✓{reset} Repository cloned\n")
-	color.Printf("{green}✓{reset} SSH config entry added\n")
-	color.Printf("{green}✓{reset} Git remote '{bold}%s{reset}' added (%s-%s:/workspace/project)\n", name, f.Config.ContainerPrefix, name)
+	color.Printf("{green}✓{reset} Git remote '{bold}%s{reset}' added\n", name)
+	color.Printf("{green}✓{reset} Pushed {bold}%s{reset} branch (HEAD: %s) to container\n", branch, getShortCommitHash())
+	color.Printf("{green}✓{reset} Container ready with your code\n")
+	
 	color.Printf("\n{cyan}Connection options:{reset}\n")
 	color.Printf("- {bold}l8s ssh %s{reset}\n", name)
 	color.Printf("- {bold}ssh %s-%s{reset}\n", f.Config.ContainerPrefix, name)
-	color.Printf("- {bold}git push %s{reset}\n", name)
+	color.Printf("- {bold}git push %s %s{reset}\n", name, branch)
 	color.Printf("\n🎳 Her life is in your hands, dude.\n")
 
 	return nil
+}
+
+// getShortCommitHash returns the short commit hash of HEAD
+func getShortCommitHash() string {
+	cmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return "unknown"
+	}
+	return strings.TrimSpace(string(output))
 }
 
 // runSSH handles the ssh command
@@ -504,7 +546,7 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 	if cfg.RemoteUser != "root" {
 		fmt.Printf("   - Set up sudo access: echo \"%s ALL=(ALL) NOPASSWD: /usr/bin/podman\" | sudo tee /etc/sudoers.d/podman\n", cfg.RemoteUser)
 	}
-	fmt.Printf("2. Run 'l8s create <name> <git-url>' to create your first container\n")
+	fmt.Printf("2. Run 'l8s create <name>' to create your first container (from within a git repository)\n")
 	fmt.Printf("3. Use 'l8s list' to see all containers\n")
 	
 	return nil

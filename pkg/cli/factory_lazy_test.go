@@ -32,7 +32,7 @@ func TestLazyCommandFactory(t *testing.T) {
 		factory := NewLazyCommandFactory()
 		
 		createCmd := factory.CreateCmd()
-		assert.Equal(t, "create <name> <git-url> [branch]", createCmd.Use)
+		assert.Equal(t, "create <name>", createCmd.Use)
 		assert.Equal(t, "Create a new development container", createCmd.Short)
 		
 		sshCmd := factory.SSHCmd()
@@ -142,8 +142,20 @@ func (m *MockGitClient) SetUpstream(repoPath, remoteName, branch string) error {
 	return nil
 }
 
-func (m *MockGitClient) CurrentBranch(repoPath string) (string, error) {
+func (m *MockGitClient) GetCurrentBranch(repoPath string) (string, error) {
 	return "", nil
+}
+
+func (m *MockGitClient) IsGitRepository(path string) bool {
+	return false
+}
+
+func (m *MockGitClient) PushBranch(repoPath, branch, remoteName string, force bool) error {
+	return nil
+}
+
+func (m *MockGitClient) InitRepository(repoPath string, allowPush bool, defaultBranch string) error {
+	return nil
 }
 
 func (m *MockGitClient) ValidateGitURL(gitURL string) error {

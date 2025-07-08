@@ -220,12 +220,24 @@ func (g *gitClientAdapter) SetUpstream(repoPath, remoteName, branch string) erro
 	return git.SetUpstream(repoPath, remoteName, branch)
 }
 
-func (g *gitClientAdapter) CurrentBranch(repoPath string) (string, error) {
+func (g *gitClientAdapter) GetCurrentBranch(repoPath string) (string, error) {
 	return git.GetCurrentBranch(repoPath)
 }
 
 func (g *gitClientAdapter) ValidateGitURL(gitURL string) error {
 	return git.ValidateGitURL(gitURL)
+}
+
+func (g *gitClientAdapter) IsGitRepository(path string) bool {
+	return git.IsGitRepository(path)
+}
+
+func (g *gitClientAdapter) PushBranch(repoPath, branch, remoteName string, force bool) error {
+	return git.PushBranch(repoPath, branch, remoteName, force)
+}
+
+func (g *gitClientAdapter) InitRepository(repoPath string, allowPush bool, defaultBranch string) error {
+	return git.InitRepository(repoPath, allowPush, defaultBranch)
 }
 
 // sshClientAdapter adapts the ssh package functions to the SSHClient interface

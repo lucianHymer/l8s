@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -525,6 +526,200 @@ func TestGenerateSSHRemoteURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			url := GenerateSSHRemoteURL(tt.containerName, tt.sshPort, tt.containerUser, tt.repoPath)
 			assert.Equal(t, tt.expected, url)
+		})
+	}
+}
+
+func TestIsGitRepository(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func(t *testing.T) string
+		expected bool
+	}{
+		{
+			name: "valid git repository",
+			setup: func(t *testing.T) string {
+				return createTestRepo(t)
+			},
+			expected: true,
+		},
+		{
+			name: "regular directory",
+			setup: func(t *testing.T) string {
+				return t.TempDir()
+			},
+			expected: false,
+		},
+		{
+			name: "non-existent directory",
+			setup: func(t *testing.T) string {
+				return filepath.Join(t.TempDir(), "nonexistent")
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := tt.setup(t)
+			result := IsGitRepository(path)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestPushBranch(t *testing.T) {
+	tests := []struct {
+		name        string
+		branch      string
+		remoteName  string
+		force       bool
+		setupRemote func(t *testing.T, repoPath string) string
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:       "push to empty remote",
+			branch:     "main",
+			remoteName: "container",
+			force:      false,
+			setupRemote: func(t *testing.T, repoPath string) string {
+				// Create a bare repo that can receive pushes
+				remoteDir := t.TempDir()
+				bareRepo := filepath.Join(remoteDir, "bare.git")
+				cmd := exec.Command("git", "init", "--bare", bareRepo)
+				err := cmd.Run()
+				require.NoError(t, err)
+				
+				// Add it as a remote
+				cmd = exec.Command("git", "remote", "add", "container", bareRepo)
+				cmd.Dir = repoPath
+				err = cmd.Run()
+				require.NoError(t, err)
+				
+				return bareRepo
+			},
+			wantErr: false,
+		},
+		{
+			name:       "push to non-bare repo with updateInstead",
+			branch:     "main",
+			remoteName: "container",
+			force:      false,
+			setupRemote: func(t *testing.T, repoPath string) string {
+				// Create a non-bare repo with receive.denyCurrentBranch=updateInstead
+				remoteRepo := createTestRepo(t)
+				
+				// Configure to accept pushes
+				cmd := exec.Command("git", "config", "receive.denyCurrentBranch", "updateInstead")
+				cmd.Dir = remoteRepo
+				err := cmd.Run()
+				require.NoError(t, err)
+				
+				// Add it as a remote
+				cmd = exec.Command("git", "remote", "add", "container", remoteRepo)
+				cmd.Dir = repoPath
+				err = cmd.Run()
+				require.NoError(t, err)
+				
+				return remoteRepo
+			},
+			wantErr: false,
+		},
+		{
+			name:        "push to non-existent remote",
+			branch:      "main",
+			remoteName:  "nonexistent",
+			force:       false,
+			setupRemote: func(t *testing.T, repoPath string) string { return "" },
+			wantErr:     true,
+			errContains: "does not exist",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repoPath := createTestRepo(t)
+			remoteRepo := tt.setupRemote(t, repoPath)
+
+			err := PushBranch(repoPath, tt.branch, tt.remoteName, tt.force)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				require.NoError(t, err)
+				
+				// Verify push was successful by checking the remote
+				if remoteRepo != "" && !strings.HasSuffix(remoteRepo, ".git") {
+					// For non-bare repos, check that the file exists
+					assert.FileExists(t, filepath.Join(remoteRepo, "README.md"))
+				}
+			}
+		})
+	}
+}
+
+func TestInitRepository(t *testing.T) {
+	tests := []struct {
+		name             string
+		allowPush        bool
+		defaultBranch    string
+		wantErr          bool
+	}{
+		{
+			name:          "init with push allowed",
+			allowPush:     true,
+			defaultBranch: "main",
+			wantErr:       false,
+		},
+		{
+			name:          "init without push allowed",
+			allowPush:     false,
+			defaultBranch: "main",
+			wantErr:       false,
+		},
+		{
+			name:          "init with custom default branch",
+			allowPush:     true,
+			defaultBranch: "develop",
+			wantErr:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repoPath := filepath.Join(t.TempDir(), "new-repo")
+			
+			err := InitRepository(repoPath, tt.allowPush, tt.defaultBranch)
+
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				
+				// Verify repo was created
+				assert.DirExists(t, filepath.Join(repoPath, ".git"))
+				
+				// Verify push config if enabled
+				if tt.allowPush {
+					cmd := exec.Command("git", "config", "receive.denyCurrentBranch")
+					cmd.Dir = repoPath
+					output, err := cmd.Output()
+					require.NoError(t, err)
+					assert.Equal(t, "updateInstead\n", string(output))
+				}
+				
+				// Verify default branch
+				cmd := exec.Command("git", "config", "init.defaultBranch")
+				cmd.Dir = repoPath
+				output, err := cmd.Output()
+				if err == nil {
+					assert.Equal(t, tt.defaultBranch+"\n", string(output))
+				}
+			}
 		})
 	}
 }

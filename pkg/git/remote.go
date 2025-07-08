@@ -287,3 +287,82 @@ func GenerateSSHRemoteURL(containerName string, sshPort int, containerUser, repo
 	}
 	return fmt.Sprintf("dev-%s:%s", containerName, repoPath)
 }
+
+// IsGitRepository checks if the given path is a git repository
+func IsGitRepository(path string) bool {
+	_, err := os.Stat(filepath.Join(path, ".git"))
+	return err == nil
+}
+
+// PushBranch pushes a branch to a remote
+func PushBranch(repoPath, branch, remoteName string, force bool) error {
+	// Check if repository exists
+	if !IsGitRepository(repoPath) {
+		return fmt.Errorf("not a git repository: %s", repoPath)
+	}
+
+	// Check if remote exists
+	remotes, err := ListRemotes(repoPath)
+	if err != nil {
+		return err
+	}
+	if _, exists := remotes[remoteName]; !exists {
+		return fmt.Errorf("remote '%s' does not exist", remoteName)
+	}
+
+	// Build push command
+	args := []string{"push", remoteName, fmt.Sprintf("%s:%s", branch, branch)}
+	if force {
+		args = append(args, "--force")
+	}
+
+	// Execute git push
+	cmd := exec.Command("git", args...)
+	cmd.Dir = repoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to push branch: %w\nOutput: %s", err, string(output))
+	}
+
+	return nil
+}
+
+// InitRepository initializes a new git repository
+func InitRepository(repoPath string, allowPush bool, defaultBranch string) error {
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(repoPath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Initialize git repository
+	cmd := exec.Command("git", "init")
+	cmd.Dir = repoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to initialize repository: %w\nOutput: %s", err, string(output))
+	}
+
+	// Set default branch if specified
+	if defaultBranch != "" {
+		cmd = exec.Command("git", "config", "init.defaultBranch", defaultBranch)
+		cmd.Dir = repoPath
+		if err := cmd.Run(); err != nil {
+			// Try alternative method for older git versions
+			cmd = exec.Command("git", "symbolic-ref", "HEAD", fmt.Sprintf("refs/heads/%s", defaultBranch))
+			cmd.Dir = repoPath
+			_ = cmd.Run() // Ignore error, not critical
+		}
+	}
+
+	// Configure to allow pushes if requested
+	if allowPush {
+		cmd = exec.Command("git", "config", "receive.denyCurrentBranch", "updateInstead")
+		cmd.Dir = repoPath
+		output, err = cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to configure push settings: %w\nOutput: %s", err, string(output))
+		}
+	}
+
+	return nil
+}
