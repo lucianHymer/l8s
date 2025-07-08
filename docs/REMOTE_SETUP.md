@@ -47,7 +47,7 @@ curl -fsSL https://raw.githubusercontent.com/l8s/l8s/main/scripts/setup-server.s
 
 2. **Enable Podman Socket**:
    ```bash
-   # For root Podman (recommended in LXC)
+   # For root Podman
    systemctl enable --now podman.socket
    
    # Verify socket is available
@@ -59,9 +59,21 @@ curl -fsSL https://raw.githubusercontent.com/l8s/l8s/main/scripts/setup-server.s
    # Ensure SSH is running
    systemctl enable --now sshd
    
+   # Create a dedicated user (recommended over root)
+   useradd -m -s /bin/bash podman
+   
    # Add your SSH key from your laptop
    # On your laptop:
-   ssh-copy-id root@your-server
+   ssh-copy-id podman@your-server
+   ```
+
+4. **Configure Sudo Access (for non-root users)**:
+   ```bash
+   # Allow passwordless sudo for podman command
+   echo "podman ALL=(ALL) NOPASSWD: /usr/bin/podman" | sudo tee /etc/sudoers.d/podman
+   
+   # Test sudo access
+   sudo -u podman sudo podman version
    ```
 
 ## Client Configuration
@@ -82,7 +94,7 @@ On your development laptop:
    
    # You'll be prompted for:
    # Remote host: your-server.example.com
-   # Remote user: root (if using LXC)
+   # Remote user: podman (or your username)
    # Remote socket: /run/podman/podman.sock
    ```
 
@@ -118,11 +130,12 @@ ssh -o ControlMaster=auto -o ControlPath=/tmp/test-%r@%h:%p your-server echo "OK
 
 ## Security Best Practices
 
-1. **Use LXC Containers**: Run Podman inside LXC for additional isolation
-2. **Dedicated Server**: Use a dedicated server or VM for l8s containers
-3. **SSH Keys Only**: Never enable password authentication
-4. **Firewall**: Restrict access to known IP addresses
-5. **Updates**: Keep the server and Podman updated
+1. **Avoid Root SSH**: Use a dedicated user with sudo access instead of root
+2. **Use LXC Containers**: Run Podman inside LXC for additional isolation
+3. **Dedicated Server**: Use a dedicated server or VM for l8s containers
+4. **SSH Keys Only**: Never enable password authentication
+5. **Firewall**: Restrict access to known IP addresses
+6. **Updates**: Keep the server and Podman updated
 
 ## Troubleshooting
 
@@ -130,13 +143,13 @@ ssh -o ControlMaster=auto -o ControlPath=/tmp/test-%r@%h:%p your-server echo "OK
 
 ```bash
 # Test SSH connectivity
-ssh root@your-server echo "Connected"
+ssh podman@your-server echo "Connected"
 
 # Check Podman socket
-ssh root@your-server systemctl status podman.socket
+ssh podman@your-server systemctl status podman.socket
 
-# Test Podman
-ssh root@your-server podman version
+# Test Podman with sudo
+ssh podman@your-server sudo podman version
 ```
 
 ### Socket Permission Issues
@@ -148,7 +161,10 @@ If you see permission errors:
 ls -la /run/podman/podman.sock
 
 # For root Podman, socket should be owned by root
-# For rootless, it should be in user's XDG_RUNTIME_DIR
+# Non-root users access it via sudo
+
+# Verify sudo access
+ssh your-user@your-server sudo podman version
 ```
 
 ### SSH Agent Issues
@@ -175,11 +191,11 @@ You can edit `~/.config/l8s/config.yaml` to switch between servers:
 ```yaml
 # Development server
 remote_host: "dev.example.com"
-remote_user: "root"
+remote_user: "podman"
 
 # Production server (commented out)
 # remote_host: "prod.example.com"
-# remote_user: "root"
+# remote_user: "podman"
 ```
 
 ### Custom Podman Socket

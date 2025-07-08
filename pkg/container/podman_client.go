@@ -53,10 +53,16 @@ Note: l8s ONLY supports remote container management for security isolation.`)
 	}
 	
 	// Build connection string
-	connectionURI := fmt.Sprintf("ssh://%s@%s%s",
+	// Add ?sudo=true parameter to use sudo for non-root users
+	sudoParam := ""
+	if cfg.RemoteUser != "root" {
+		sudoParam = "?sudo=true"
+	}
+	connectionURI := fmt.Sprintf("ssh://%s@%s%s%s",
 		cfg.RemoteUser,
 		cfg.RemoteHost,
 		cfg.RemoteSocket,
+		sudoParam,
 	)
 	
 	// Verify ssh-agent is running

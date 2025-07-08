@@ -50,11 +50,18 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	cfg.RemoteHost = remoteHost
 	
-	remoteUser, err := promptWithDefault("Remote server username", "root")
+	remoteUser, err := promptWithDefault("Remote server username", "podman")
 	if err != nil {
 		return err
 	}
 	cfg.RemoteUser = remoteUser
+	
+	// Show sudo setup instructions for non-root users
+	if remoteUser != "root" {
+		fmt.Printf("\n📝 Note: Using non-root user '%s'. You'll need to set up sudo access:\n", remoteUser)
+		fmt.Printf("   On the remote server, run:\n")
+		fmt.Printf("   echo \"%s ALL=(ALL) NOPASSWD: /usr/bin/podman\" | sudo tee /etc/sudoers.d/podman\n\n", remoteUser)
+	}
 	
 	remoteSocket, err := promptWithDefault("Remote Podman socket path", cfg.RemoteSocket)
 	if err != nil {
@@ -73,7 +80,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\nPlease ensure:\n")
 		fmt.Printf("1. SSH key is configured: ssh-copy-id %s@%s\n", cfg.RemoteUser, cfg.RemoteHost)
 		fmt.Printf("2. Server is accessible\n")
-		fmt.Printf("3. User has Podman access\n")
+		if cfg.RemoteUser != "root" {
+			fmt.Printf("3. User has sudo access to Podman (see instructions above)\n")
+		} else {
+			fmt.Printf("3. User has Podman access\n")
+		}
 		return fmt.Errorf("SSH connection test failed")
 	}
 	fmt.Println("✓ SSH connection successful")
@@ -154,6 +165,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Configuration saved to: %s\n", configPath)
 	fmt.Println("\nNext steps:")
 	fmt.Printf("1. Ensure Podman is running on %s\n", cfg.RemoteHost)
+	if cfg.RemoteUser != "root" {
+		fmt.Printf("   - Set up sudo access: echo \"%s ALL=(ALL) NOPASSWD: /usr/bin/podman\" | sudo tee /etc/sudoers.d/podman\n", cfg.RemoteUser)
+	}
 	fmt.Printf("2. Run 'l8s create <name> <git-url>' to create your first container\n")
 	fmt.Printf("3. Use 'l8s list' to see all containers\n")
 	
