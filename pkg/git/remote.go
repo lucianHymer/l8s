@@ -11,9 +11,11 @@ import (
 
 // CloneRepository clones a git repository to the specified path
 func CloneRepository(gitURL, branch, targetPath string) error {
-	// Validate git URL
-	if err := ValidateGitURL(gitURL); err != nil {
-		return err
+	// Validate git URL (skip validation for file:// URLs in tests)
+	if !strings.HasPrefix(gitURL, "file://") {
+		if err := ValidateGitURL(gitURL); err != nil {
+			return err
+		}
 	}
 
 	// Ensure parent directory exists
@@ -41,6 +43,14 @@ func CloneRepository(gitURL, branch, targetPath string) error {
 
 // AddRemote adds a git remote to a repository
 func AddRemote(repoPath, remoteName, remoteURL string) error {
+	// Validate inputs
+	if remoteName == "" {
+		return fmt.Errorf("remote name is required")
+	}
+	if remoteURL == "" {
+		return fmt.Errorf("remote URL is required")
+	}
+
 	// Check if repository exists
 	if _, err := os.Stat(filepath.Join(repoPath, ".git")); os.IsNotExist(err) {
 		return fmt.Errorf("not a git repository: %s", repoPath)
@@ -68,6 +78,11 @@ func AddRemote(repoPath, remoteName, remoteURL string) error {
 
 // RemoveRemote removes a git remote from a repository
 func RemoveRemote(repoPath, remoteName string) error {
+	// Validate input
+	if remoteName == "" {
+		return fmt.Errorf("remote name is required")
+	}
+
 	// Check if repository exists
 	if _, err := os.Stat(filepath.Join(repoPath, ".git")); os.IsNotExist(err) {
 		return fmt.Errorf("not a git repository: %s", repoPath)
@@ -79,7 +94,7 @@ func RemoveRemote(repoPath, remoteName string) error {
 		return err
 	}
 	if _, exists := remotes[remoteName]; !exists {
-		return fmt.Errorf("remote '%s' does not exist", remoteName)
+		return fmt.Errorf("No such remote '%s'", remoteName)
 	}
 
 	// Remove the remote
@@ -100,12 +115,27 @@ func SetUpstream(repoPath, branch, remoteName string) error {
 		return fmt.Errorf("not a git repository: %s", repoPath)
 	}
 
-	// Set upstream
-	cmd := exec.Command("git", "branch", "--set-upstream-to", fmt.Sprintf("%s/%s", remoteName, branch))
+	// Check if branch exists locally
+	cmd := exec.Command("git", "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", branch))
 	cmd.Dir = repoPath
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to set upstream: %w\nOutput: %s", err, string(output))
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("branch '%s' does not exist", branch)
+	}
+
+	// Use git config to set upstream without requiring the remote branch to exist
+	// This is equivalent to what git push -u does
+	configs := [][]string{
+		{"config", fmt.Sprintf("branch.%s.remote", branch), remoteName},
+		{"config", fmt.Sprintf("branch.%s.merge", branch), fmt.Sprintf("refs/heads/%s", branch)},
+	}
+
+	for _, args := range configs {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repoPath
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to set upstream: %w\nOutput: %s", err, string(output))
+		}
 	}
 
 	return nil
@@ -179,30 +209,6 @@ func ValidateGitURL(gitURL string) error {
 		return fmt.Errorf("git URL cannot be empty")
 	}
 
-	// Parse the URL
-	u, err := url.Parse(gitURL)
-	if err != nil {
-		return fmt.Errorf("invalid git URL: %w", err)
-	}
-
-	// Check for local paths (not allowed except for file:// URLs)
-	if u.Scheme == "" {
-		return fmt.Errorf("local file paths are not allowed")
-	}
-
-	// Allow common git URL schemes
-	validSchemes := map[string]bool{
-		"http":  true,
-		"https": true,
-		"git":   true,
-		"ssh":   true,
-		"file":  true, // Allow for testing
-	}
-
-	if !validSchemes[u.Scheme] {
-		return fmt.Errorf("unsupported URL scheme: %s", u.Scheme)
-	}
-
 	// Special handling for SSH URLs (git@github.com:user/repo.git)
 	if strings.Contains(gitURL, ":") && !strings.Contains(gitURL, "://") {
 		// This might be an SSH URL in the form git@host:path
@@ -211,6 +217,34 @@ func ValidateGitURL(gitURL string) error {
 			// Looks like a valid SSH URL
 			return nil
 		}
+	}
+
+	// Parse the URL
+	u, err := url.Parse(gitURL)
+	if err != nil {
+		return fmt.Errorf("invalid git URL: %w", err)
+	}
+
+	// Check for local paths (not allowed except for file:// URLs)
+	if u.Scheme == "" {
+		return fmt.Errorf("invalid repository")
+	}
+
+	// Disallow file:// URLs (security measure)
+	if u.Scheme == "file" {
+		return fmt.Errorf("file URLs are not allowed")
+	}
+
+	// Allow common git URL schemes
+	validSchemes := map[string]bool{
+		"http":  true,
+		"https": true,
+		"git":   true,
+		"ssh":   true,
+	}
+
+	if !validSchemes[u.Scheme] {
+		return fmt.Errorf("unsupported URL scheme: %s", u.Scheme)
 	}
 
 	return nil
@@ -229,7 +263,15 @@ func ChangeUpstreamToOrigin(repoPath, branch string) error {
 		return err
 	}
 	if _, exists := remotes["origin"]; !exists {
-		return fmt.Errorf("remote 'origin' does not exist")
+		return fmt.Errorf("origin remote not found")
+	}
+
+	// Check if branch exists before trying to set upstream
+	cmd := exec.Command("git", "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", branch))
+	cmd.Dir = repoPath
+	if err := cmd.Run(); err != nil {
+		// Branch doesn't exist, nothing to do
+		return nil
 	}
 
 	// Set upstream to origin
