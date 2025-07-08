@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/l8s/l8s/pkg/ssh"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -131,12 +130,28 @@ func (c *RealPodmanClient) GetContainerInfo(ctx context.Context, name string) (*
 }
 
 func (c *RealPodmanClient) FindAvailablePort(startPort int) (int, error) {
-	// For tests, just check if port is available
+	// For tests, simulate checking remote containers
+	containers, err := c.ListContainers(context.Background())
+	if err != nil {
+		return 0, fmt.Errorf("failed to list containers: %w", err)
+	}
+	
+	// Build a map of ports in use by running containers
+	portsInUse := make(map[int]bool)
+	for _, container := range containers {
+		// Only consider running containers
+		if container.Status == "running" && container.SSHPort > 0 {
+			portsInUse[container.SSHPort] = true
+		}
+	}
+	
+	// Find the first available port
 	for port := startPort; port < startPort+100; port++ {
-		if ssh.IsPortAvailable(port) {
+		if !portsInUse[port] {
 			return port, nil
 		}
 	}
+	
 	return 0, fmt.Errorf("no available ports found")
 }
 

@@ -296,11 +296,28 @@ func (c *RealPodmanClient) GetContainerInfo(ctx context.Context, name string) (*
 
 // FindAvailablePort finds an available port starting from the given port
 func (c *RealPodmanClient) FindAvailablePort(startPort int) (int, error) {
+	// Get all running containers to check which ports are in use on the remote
+	containers, err := c.ListContainers(context.Background())
+	if err != nil {
+		return 0, fmt.Errorf("failed to list containers: %w", err)
+	}
+	
+	// Build a map of ports in use by running containers
+	portsInUse := make(map[int]bool)
+	for _, container := range containers {
+		// Only consider running containers
+		if container.Status == "running" && container.SSHPort > 0 {
+			portsInUse[container.SSHPort] = true
+		}
+	}
+	
+	// Find the first available port
 	for port := startPort; port < startPort+100; port++ {
-		if ssh.IsPortAvailable(port) {
+		if !portsInUse[port] {
 			return port, nil
 		}
 	}
+	
 	return 0, fmt.Errorf("no available ports found in range %d-%d", startPort, startPort+100)
 }
 
