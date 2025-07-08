@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/l8s/l8s/pkg/color"
 	"github.com/l8s/l8s/pkg/config"
 	"github.com/l8s/l8s/pkg/container"
 	"github.com/spf13/cobra"
@@ -49,7 +50,7 @@ func runRemove(cmd *cobra.Command, args []string, force bool, keepVolumes bool) 
 		if !keepVolumes {
 			removeVolumesText = " and volumes"
 		}
-		fmt.Printf("Remove container %s-%s%s? (y/N): ", cfg.ContainerPrefix, name, removeVolumesText)
+		color.Printf("{yellow}Remove container {bold}%s-%s{reset}{yellow}%s? (y/N):{reset} ", cfg.ContainerPrefix, name, removeVolumesText)
 		
 		reader := bufio.NewReader(os.Stdin)
 		response, err := reader.ReadString('\n')
@@ -59,7 +60,7 @@ func runRemove(cmd *cobra.Command, args []string, force bool, keepVolumes bool) 
 		
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "y" && response != "yes" {
-			fmt.Println("Removal cancelled.")
+			color.Warning("Removal cancelled.")
 			return nil
 		}
 	}
@@ -85,10 +86,10 @@ func runRemove(cmd *cobra.Command, args []string, force bool, keepVolumes bool) 
 		return err
 	}
 
-	fmt.Printf("✓ Git remote removed\n")
-	fmt.Printf("✓ Container removed\n")
+	color.Printf("{green}✓{reset} Git remote removed\n")
+	color.Printf("{green}✓{reset} Container removed\n")
 	if !keepVolumes {
-		fmt.Printf("✓ Volumes removed\n")
+		color.Printf("{green}✓{reset} Volumes removed\n")
 	}
 
 	return nil

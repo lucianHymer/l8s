@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/l8s/l8s/pkg/cli"
+	"github.com/l8s/l8s/pkg/color"
 	"github.com/l8s/l8s/pkg/ssh"
 	"github.com/spf13/cobra"
 )
@@ -45,7 +46,7 @@ func runCreateWithManager(cmd *cobra.Command, args []string, containerMgr cli.Co
 	}
 
 	// Create container
-	fmt.Printf("🎳 Creating container: dev-%s\n", name)
+	color.Printf("🎳 {cyan}Creating container:{reset} {bold}dev-%s{reset}\n", name)
 	
 	ctx := context.Background()
 	cont, err := containerMgr.CreateContainer(ctx, name, gitURL, branch, sshKey)
@@ -54,14 +55,14 @@ func runCreateWithManager(cmd *cobra.Command, args []string, containerMgr cli.Co
 	}
 
 	// Display success message
-	fmt.Printf("✓ SSH port: %d\n", cont.SSHPort)
-	fmt.Printf("✓ Repository cloned\n")
-	fmt.Printf("✓ SSH config entry added\n")
-	fmt.Printf("✓ Git remote '%s' added (dev-%s:/workspace/project)\n", name, name)
-	fmt.Printf("\nConnection options:\n")
-	fmt.Printf("- l8s ssh %s\n", name)
-	fmt.Printf("- ssh dev-%s\n", name)
-	fmt.Printf("- git push %s\n", name)
+	color.Printf("{green}✓{reset} SSH port: {bold}%d{reset}\n", cont.SSHPort)
+	color.Printf("{green}✓{reset} Repository cloned\n")
+	color.Printf("{green}✓{reset} SSH config entry added\n")
+	color.Printf("{green}✓{reset} Git remote '{bold}%s{reset}' added (dev-%s:/workspace/project)\n", name, name)
+	color.Printf("\n{cyan}Connection options:{reset}\n")
+	color.Printf("- {bold}l8s ssh %s{reset}\n", name)
+	color.Printf("- {bold}ssh dev-%s{reset}\n", name)
+	color.Printf("- {bold}git push %s{reset}\n", name)
 
 	return nil
 }

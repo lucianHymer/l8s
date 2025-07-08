@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/l8s/l8s/pkg/color"
 	"github.com/l8s/l8s/pkg/config"
 	"github.com/l8s/l8s/pkg/container"
 	"github.com/spf13/cobra"
@@ -52,6 +53,6 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("✓ Container '%s' started\n", name)
+	color.Printf("{green}✓{reset} Container '{bold}%s{reset}' started\n", name)
 	return nil
 }

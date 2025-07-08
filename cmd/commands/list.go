@@ -3,10 +3,12 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
 
+	"github.com/l8s/l8s/pkg/color"
 	"github.com/l8s/l8s/pkg/config"
 	"github.com/l8s/l8s/pkg/container"
 	"github.com/spf13/cobra"
@@ -59,9 +61,20 @@ func runList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Print table
-	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSTATUS\tSSH PORT\tGIT REMOTE\tCREATED")
+	// Print table header with color support
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	
+	// Print header in bold
+	if os.Getenv("NO_COLOR") == "" {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+			color.Bold("NAME"),
+			color.Bold("STATUS"),
+			color.Bold("SSH PORT"),
+			color.Bold("GIT REMOTE"),
+			color.Bold("CREATED"))
+	} else {
+		fmt.Fprintln(w, "NAME\tSTATUS\tSSH PORT\tGIT REMOTE\tCREATED")
+	}
 	
 	for _, cont := range containers {
 		// Remove prefix from name for display
@@ -70,18 +83,18 @@ func runList(cmd *cobra.Command, args []string) error {
 			displayName = strings.TrimPrefix(displayName, cfg.ContainerPrefix+"-")
 		}
 
-		// Format git remote status
-		gitRemote := "✗"
-		if cont.GitURL != "" {
-			gitRemote = "✓"
-		}
+		// Format git remote status with color
+		gitRemote := formatGitStatus(cont.GitURL != "")
 
 		// Format creation time
 		created := formatDuration(time.Since(cont.CreatedAt))
 
+		// Format status with color
+		statusStr := formatStatus(cont.Status)
+
 		fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n",
 			displayName,
-			cont.Status,
+			statusStr,
 			cont.SSHPort,
 			gitRemote,
 			created,
@@ -101,4 +114,37 @@ func formatDuration(d time.Duration) string {
 	} else {
 		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
 	}
+}
+
+// formatStatus returns a colored status string
+func formatStatus(status string) string {
+	if os.Getenv("NO_COLOR") != "" {
+		return status
+	}
+	
+	switch status {
+	case "running":
+		return color.Green + status + color.Reset
+	case "stopped", "exited":
+		return color.Red + status + color.Reset
+	case "paused":
+		return color.Yellow + status + color.Reset
+	default:
+		return status
+	}
+}
+
+// formatGitStatus returns a colored git status indicator
+func formatGitStatus(hasGit bool) string {
+	if os.Getenv("NO_COLOR") != "" {
+		if hasGit {
+			return "✓"
+		}
+		return "✗"
+	}
+	
+	if hasGit {
+		return color.Green + "✓" + color.Reset
+	}
+	return color.Red + "✗" + color.Reset
 }
