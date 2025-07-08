@@ -45,7 +45,7 @@ all: clean test build ## Clean, test, and build
 build: check-deps ## Build the l8s binary
 	@echo "🎳 Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
-	$(GOBUILD) $(GOFLAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
+	$(GOBUILD) $(GOFLAGS) -tags exclude_graphdriver_btrfs,exclude_graphdriver_devicemapper $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
 	@echo "✓ Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 .PHONY: clean

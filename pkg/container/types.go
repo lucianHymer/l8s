@@ -39,6 +39,7 @@ type PodmanClient interface {
 	GetContainerInfo(ctx context.Context, name string) (*Container, error)
 	FindAvailablePort(startPort int) (int, error)
 	ExecContainer(ctx context.Context, name string, cmd []string) error
+	ExecContainerWithInput(ctx context.Context, name string, cmd []string, input string) error
 	CopyToContainer(ctx context.Context, name string, src, dst string) error
 }
 

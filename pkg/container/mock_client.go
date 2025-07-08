@@ -78,6 +78,12 @@ func (m *MockPodmanClient) ExecContainer(ctx context.Context, name string, cmd [
 	return args.Error(0)
 }
 
+// ExecContainerWithInput mocks the ExecContainerWithInput method
+func (m *MockPodmanClient) ExecContainerWithInput(ctx context.Context, name string, cmd []string, input string) error {
+	args := m.Called(ctx, name, cmd, input)
+	return args.Error(0)
+}
+
 // CopyToContainer mocks the CopyToContainer method
 func (m *MockPodmanClient) CopyToContainer(ctx context.Context, name string, src, dst string) error {
 	args := m.Called(ctx, name, src, dst)
@@ -135,6 +141,10 @@ func (c *RealPodmanClient) FindAvailablePort(startPort int) (int, error) {
 }
 
 func (c *RealPodmanClient) ExecContainer(ctx context.Context, name string, cmd []string) error {
+	return fmt.Errorf("not implemented in test build")
+}
+
+func (c *RealPodmanClient) ExecContainerWithInput(ctx context.Context, name string, cmd []string, input string) error {
 	return fmt.Errorf("not implemented in test build")
 }
 

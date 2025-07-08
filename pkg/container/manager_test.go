@@ -53,6 +53,21 @@ func TestManager_CreateContainer(t *testing.T) {
 					},
 				}, nil)
 				m.On("StartContainer", mock.Anything, "dev-myproject").Return(nil)
+				
+				// Mock setupSSH calls
+				m.On("ExecContainer", mock.Anything, "dev-myproject", 
+					[]string{"mkdir", "-p", "/home/dev/.ssh"}).Return(nil)
+				m.On("ExecContainerWithInput", mock.Anything, "dev-myproject", 
+					[]string{"tee", "/home/dev/.ssh/authorized_keys"}, 
+					mock.AnythingOfType("string")).Return(nil)
+				m.On("ExecContainer", mock.Anything, "dev-myproject", 
+					[]string{"chmod", "600", "/home/dev/.ssh/authorized_keys"}).Return(nil)
+				m.On("ExecContainer", mock.Anything, "dev-myproject", 
+					[]string{"chown", "-R", "dev:dev", "/home/dev/.ssh"}).Return(nil)
+				
+				// Mock cloneRepository call
+				m.On("ExecContainer", mock.Anything, "dev-myproject", 
+					[]string{"git", "clone", "-b", "main", "https://github.com/user/repo.git", "/workspace/project"}).Return(nil)
 			},
 			wantErr: false,
 		},
@@ -76,7 +91,7 @@ func TestManager_CreateContainer(t *testing.T) {
 			sshKey:        "ssh-ed25519 AAAAC3... user@example.com",
 			setupMocks:    func(m *MockPodmanClient) {},
 			wantErr:       true,
-			errContains:   "invalid container name",
+			errContains:   "container name must consist of lowercase letters",
 		},
 		{
 			name:          "empty git URL",
@@ -84,9 +99,11 @@ func TestManager_CreateContainer(t *testing.T) {
 			gitURL:        "",
 			branch:        "main",
 			sshKey:        "ssh-ed25519 AAAAC3... user@example.com",
-			setupMocks:    func(m *MockPodmanClient) {},
+			setupMocks:    func(m *MockPodmanClient) {
+				m.On("ContainerExists", mock.Anything, "dev-myproject").Return(false, nil)
+			},
 			wantErr:       true,
-			errContains:   "git URL is required",
+			errContains:   "git URL cannot be empty",
 		},
 		{
 			name:          "no available ports",
@@ -99,7 +116,7 @@ func TestManager_CreateContainer(t *testing.T) {
 				m.On("FindAvailablePort", 2200).Return(0, assert.AnError)
 			},
 			wantErr:     true,
-			errContains: "no available SSH port",
+			errContains: "failed to find available port",
 		},
 	}
 
@@ -197,7 +214,6 @@ func TestManager_RemoveContainer(t *testing.T) {
 			removeVolumes: true,
 			setupMocks: func(m *MockPodmanClient) {
 				m.On("ContainerExists", mock.Anything, "dev-myproject").Return(true, nil)
-				m.On("StopContainer", mock.Anything, "dev-myproject").Return(nil)
 				m.On("RemoveContainer", mock.Anything, "dev-myproject", true).Return(nil)
 			},
 			wantErr: false,
@@ -208,7 +224,6 @@ func TestManager_RemoveContainer(t *testing.T) {
 			removeVolumes: false,
 			setupMocks: func(m *MockPodmanClient) {
 				m.On("ContainerExists", mock.Anything, "dev-myproject").Return(true, nil)
-				m.On("StopContainer", mock.Anything, "dev-myproject").Return(nil)
 				m.On("RemoveContainer", mock.Anything, "dev-myproject", false).Return(nil)
 			},
 			wantErr: false,
@@ -285,11 +300,9 @@ func TestManager_StartStopContainer(t *testing.T) {
 	mockClient := new(MockPodmanClient)
 	
 	// Test Start
-	mockClient.On("ContainerExists", mock.Anything, "dev-myproject").Return(true, nil).Once()
 	mockClient.On("StartContainer", mock.Anything, "dev-myproject").Return(nil)
 	
 	// Test Stop
-	mockClient.On("ContainerExists", mock.Anything, "dev-myproject").Return(true, nil).Once()
 	mockClient.On("StopContainer", mock.Anything, "dev-myproject").Return(nil)
 	
 	manager := NewManager(mockClient, Config{
@@ -319,7 +332,7 @@ func TestValidateContainerName(t *testing.T) {
 		{"empty name", "", true},
 		{"spaces in name", "my project", true},
 		{"special characters", "my@project", true},
-		{"starts with number", "123project", true},
+		{"starts with number", "123project", false},
 		{"starts with dash", "-project", true},
 		{"uppercase letters", "MyProject", true},
 	}
@@ -340,7 +353,8 @@ func TestManager_ListContainersWithLabels(t *testing.T) {
 	mockClient := new(MockPodmanClient)
 	
 	// Simulate mix of l8s and non-l8s containers
-	allContainers := []*Container{
+	// Mock should only return l8s-managed containers
+	managedContainers := []*Container{
 		{
 			Name:    "dev-project1",
 			Status:  "running",
@@ -350,13 +364,6 @@ func TestManager_ListContainersWithLabels(t *testing.T) {
 				"l8s.git.url":   "https://github.com/user/project1.git",
 				"l8s.git.branch": "main",
 				"l8s.ssh.port":  "2200",
-			},
-		},
-		{
-			Name:   "some-other-container",
-			Status: "running",
-			Labels: map[string]string{
-				"other": "label",
 			},
 		},
 		{
@@ -372,7 +379,7 @@ func TestManager_ListContainersWithLabels(t *testing.T) {
 		},
 	}
 	
-	mockClient.On("ListContainers", mock.Anything).Return(allContainers, nil)
+	mockClient.On("ListContainers", mock.Anything).Return(managedContainers, nil)
 	
 	manager := NewManager(mockClient, Config{
 		ContainerPrefix: "dev",

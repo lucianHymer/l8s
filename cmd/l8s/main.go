@@ -2,13 +2,19 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/l8s/l8s/pkg/cli"
+	"github.com/l8s/l8s/pkg/logging"
 	"github.com/spf13/cobra"
 )
 
 func main() {
+	// Initialize logging
+	initLogging()
+
 	// Create command factory
 	factory, err := cli.NewCommandFactory()
 	if err != nil {
@@ -44,4 +50,36 @@ accessible via SSH using key-based authentication.`,
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
+}
+
+func initLogging() {
+	// Get log level from environment
+	level := slog.LevelInfo
+	if envLevel := os.Getenv("L8S_LOG_LEVEL"); envLevel != "" {
+		switch strings.ToLower(envLevel) {
+		case "debug":
+			level = slog.LevelDebug
+		case "warn", "warning":
+			level = slog.LevelWarn
+		case "error":
+			level = slog.LevelError
+		}
+	}
+
+	// Get log format from environment
+	format := "text"
+	if envFormat := os.Getenv("L8S_LOG_FORMAT"); envFormat != "" {
+		format = strings.ToLower(envFormat)
+	}
+
+	// Create logger configuration
+	cfg := logging.Config{
+		Level:  strings.ToLower(level.String()),
+		Format: format,
+		Output: "stderr",
+	}
+
+	// Create and set logger
+	logger, _ := logging.NewLogger(cfg)
+	logging.SetDefault(logger)
 }
