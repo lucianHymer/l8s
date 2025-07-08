@@ -3,6 +3,7 @@ package container
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/l8s/l8s/pkg/cleanup"
+	"github.com/l8s/l8s/pkg/embed"
 	"github.com/l8s/l8s/pkg/git"
 	"github.com/l8s/l8s/pkg/logging"
 	"github.com/l8s/l8s/pkg/ssh"
@@ -21,6 +23,7 @@ type Manager struct {
 	client PodmanClient
 	config Config
 	logger *slog.Logger
+	cliDotfilesPath string
 }
 
 // NewManager creates a new container manager
@@ -319,31 +322,25 @@ func (m *Manager) setupSSH(ctx context.Context, containerName, publicKey string)
 
 // copyDotfiles copies dotfiles to the container
 func (m *Manager) copyDotfiles(ctx context.Context, containerName string) error {
-	// Use repository's dotfiles directory for consistent dev environment
-	// This provides isolation and ensures all developers get the same experience
-	workDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+	// Get dotfiles path based on priority system
+	dotfilesPath, useEmbedded := m.getDotfilesPath()
+	
+	if useEmbedded {
+		// Use embedded dotfiles
+		m.logger.Info("using embedded dotfiles",
+			logging.WithField("container", containerName))
+		
+		return m.copyEmbeddedDotfiles(ctx, containerName)
 	}
 	
-	// Look for dotfiles in the repository
-	dotfilesDir := filepath.Join(workDir, "dotfiles")
-	
-	// Check if dotfiles directory exists
-	if _, err := os.Stat(dotfilesDir); os.IsNotExist(err) {
-		// No repository dotfiles, skip
-		m.logger.Debug("no repository dotfiles found, skipping", 
-			logging.WithField("path", dotfilesDir))
-		return nil
-	}
-	
-	m.logger.Info("copying repository dotfiles to container",
-		logging.WithField("source", dotfilesDir),
+	// Use user-specified dotfiles
+	m.logger.Info("copying dotfiles to container",
+		logging.WithField("source", dotfilesPath),
 		logging.WithField("container", containerName))
 	
 	// Copy dotfiles to container
-	if err := CopyDotfilesToContainer(ctx, m.client, containerName, dotfilesDir, m.config.ContainerUser); err != nil {
-		return err
+	if err := CopyDotfilesToContainer(ctx, m.client, containerName, dotfilesPath, m.config.ContainerUser); err != nil {
+		return fmt.Errorf("failed to copy dotfiles: %w", err)
 	}
 	
 	// Apply host git configuration
@@ -444,6 +441,101 @@ func (m *Manager) SSHIntoContainer(ctx context.Context, name string) error {
 	sshCmd.Stderr = os.Stderr
 	
 	return sshCmd.Run()
+}
+
+// SetCLIDotfilesPath sets the CLI dotfiles path (highest priority)
+func (m *Manager) SetCLIDotfilesPath(path string) {
+	m.cliDotfilesPath = path
+}
+
+// getDotfilesPath returns the dotfiles path to use based on priority:
+// 1. CLI flag (--dotfiles-path)
+// 2. Environment variable (L8S_DOTFILES)
+// 3. Config file (dotfiles_path field)
+// 4. User dotfiles (~/.config/l8s/dotfiles/)
+// 5. Embedded defaults (returns empty path, true)
+func (m *Manager) getDotfilesPath() (string, bool) {
+	// 1. CLI flag takes highest priority
+	if m.cliDotfilesPath != "" {
+		return m.cliDotfilesPath, false
+	}
+	
+	// 2. Environment variable
+	if envPath := os.Getenv("L8S_DOTFILES"); envPath != "" {
+		return envPath, false
+	}
+	
+	// 3. Config file
+	if m.config.DotfilesPath != "" {
+		return m.config.DotfilesPath, false
+	}
+	
+	// 4. User dotfiles directory
+	home, err := os.UserHomeDir()
+	if err == nil {
+		userDotfiles := filepath.Join(home, ".config", "l8s", "dotfiles")
+		if _, err := os.Stat(userDotfiles); err == nil {
+			return userDotfiles, false
+		}
+	}
+	
+	// 5. Use embedded defaults
+	return "", true
+}
+
+// copyEmbeddedDotfiles copies embedded dotfiles to the container
+func (m *Manager) copyEmbeddedDotfiles(ctx context.Context, containerName string) error {
+	// Get embedded filesystem
+	embedFS, err := embed.GetDotfilesFS()
+	if err != nil {
+		return fmt.Errorf("failed to get embedded dotfiles: %w", err)
+	}
+	
+	// Create temp directory for staging embedded files
+	tempDir, err := os.MkdirTemp("", "l8s-embedded-dotfiles-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+	
+	// Walk through embedded filesystem and extract files
+	err = fs.WalkDir(embedFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		
+		// Skip the root directory
+		if path == "." {
+			return nil
+		}
+		
+		destPath := filepath.Join(tempDir, path)
+		
+		if d.IsDir() {
+			return os.MkdirAll(destPath, 0755)
+		}
+		
+		// Read file from embedded FS
+		data, err := fs.ReadFile(embedFS, path)
+		if err != nil {
+			return fmt.Errorf("failed to read embedded file %s: %w", path, err)
+		}
+		
+		// Write to temp directory
+		return os.WriteFile(destPath, data, 0644)
+	})
+	
+	if err != nil {
+		return fmt.Errorf("failed to extract embedded dotfiles: %w", err)
+	}
+	
+	// Copy extracted dotfiles to container
+	if err := CopyDotfilesToContainer(ctx, m.client, containerName, tempDir, m.config.ContainerUser); err != nil {
+		return fmt.Errorf("failed to copy embedded dotfiles: %w", err)
+	}
+	
+	// Apply host git configuration
+	return m.applyHostGitConfig(ctx, containerName)
 }
 
 // BuildImage builds the container image on the remote server

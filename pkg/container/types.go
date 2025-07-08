@@ -50,6 +50,7 @@ type Config struct {
 	BaseImage       string
 	ContainerPrefix string
 	ContainerUser   string
+	DotfilesPath    string
 }
 
 // Labels used for container metadata

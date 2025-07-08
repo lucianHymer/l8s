@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/l8s/l8s/pkg/logging"
@@ -235,5 +236,104 @@ func TestCopyDotfilesWithPriority(t *testing.T) {
 				tt.checkFunc(t, mockClient)
 			}
 		})
+	}
+}
+
+func TestCopyEmbeddedDotfiles(t *testing.T) {
+	ctx := context.Background()
+	
+	// Create mock client
+	mockClient := &MockPodmanClient{}
+	
+	// Mock the CopyToContainer calls for embedded dotfiles
+	// We expect multiple files to be copied
+	mockClient.On("CopyToContainer", ctx, "test-container", 
+		mock.AnythingOfType("string"), 
+		mock.AnythingOfType("string")).Return(nil)
+	
+	// Mock ExecContainer for mkdir, chown, chmod commands
+	mockClient.On("ExecContainer", ctx, "test-container",
+		mock.AnythingOfType("[]string")).Return(nil)
+	
+	// Mock ExecContainerWithInput for git config (from applyHostGitConfig)
+	mockClient.On("ExecContainerWithInput", ctx, "test-container", 
+		mock.AnythingOfType("[]string"), 
+		mock.AnythingOfType("string")).Return(nil).Maybe()
+	
+	cfg := Config{
+		ContainerUser: "testuser",
+	}
+	
+	m := &Manager{
+		config: cfg,
+		client: mockClient,
+		logger: logging.Default(),
+	}
+	
+	// Test copyEmbeddedDotfiles
+	err := m.copyEmbeddedDotfiles(ctx, "test-container")
+	if err != nil {
+		t.Errorf("copyEmbeddedDotfiles() error = %v", err)
+	}
+	
+	// Verify that CopyToContainer was called for various dotfiles
+	expectedFiles := []string{
+		".bashrc",
+		".gitconfig", 
+		".tmux.conf",
+		".zshrc",
+		".claude/settings.json",
+		".config/nvim/init.vim",
+	}
+	
+	for _, file := range expectedFiles {
+		// Find if this file was copied
+		found := false
+		for _, call := range mockClient.Calls {
+			if call.Method == "CopyToContainer" {
+				if dst, ok := call.Arguments.Get(3).(string); ok {
+					if strings.HasSuffix(dst, file) {
+						found = true
+						break
+					}
+				}
+			}
+		}
+		if !found {
+			t.Errorf("Expected %s to be copied, but it wasn't", file)
+		}
+	}
+	
+	// Verify that ExecContainer was called for directory creation and permissions
+	mockClient.AssertCalled(t, "ExecContainer", ctx, "test-container", 
+		mock.AnythingOfType("[]string"))
+	
+	mockClient.AssertExpectations(t)
+}
+
+func TestSetCLIDotfilesPath(t *testing.T) {
+	cfg := Config{
+		ContainerUser: "testuser",
+		DotfilesPath: "/config/path",
+	}
+	
+	m := &Manager{
+		config: cfg,
+		logger: logging.Default(),
+	}
+	
+	// Initially, should use config path
+	path, useEmbedded := m.getDotfilesPath()
+	if path != "/config/path" || useEmbedded {
+		t.Errorf("Expected config path before CLI override")
+	}
+	
+	// Set CLI path
+	m.SetCLIDotfilesPath("/cli/override")
+	
+	// Now should use CLI path
+	path, useEmbedded = m.getDotfilesPath()
+	if path != "/cli/override" || useEmbedded {
+		t.Errorf("Expected CLI path after override, got %s", path)
 	}
 }

@@ -47,6 +47,7 @@ func (f *LazyCommandFactory) defaultInitializer() error {
 		BaseImage:       cfg.BaseImage,
 		ContainerPrefix: cfg.ContainerPrefix,
 		ContainerUser:   cfg.ContainerUser,
+		DotfilesPath:    cfg.DotfilesPath,
 	}
 
 	f.Config = cfg
@@ -69,7 +70,9 @@ func (f *LazyCommandFactory) ensureInitialized() error {
 
 // CreateCmd returns the create command with lazy initialization
 func (f *LazyCommandFactory) CreateCmd() *cobra.Command {
-	return &cobra.Command{
+	var dotfilesPath string
+	
+	cmd := &cobra.Command{
 		Use:   "create <name> <git-url> [branch]",
 		Short: "Create a new development container",
 		Long:  `Creates a new development container with SSH access and clones the specified git repository.`,
@@ -78,6 +81,14 @@ func (f *LazyCommandFactory) CreateCmd() *cobra.Command {
 			if err := f.ensureInitialized(); err != nil {
 				return err
 			}
+			
+			// Set CLI dotfiles path if provided
+			if dotfilesPath != "" {
+				if cm, ok := f.ContainerMgr.(*container.Manager); ok {
+					cm.SetCLIDotfilesPath(dotfilesPath)
+				}
+			}
+			
 			// Delegate to the original factory implementation
 			origFactory := &CommandFactory{
 				Config:       f.Config,
@@ -88,6 +99,10 @@ func (f *LazyCommandFactory) CreateCmd() *cobra.Command {
 			return origFactory.runCreate(cmd, args)
 		},
 	}
+	
+	cmd.Flags().StringVar(&dotfilesPath, "dotfiles-path", "", "Path to dotfiles directory to copy to the container")
+	
+	return cmd
 }
 
 // SSHCmd returns the ssh command with lazy initialization

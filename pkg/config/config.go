@@ -25,6 +25,7 @@ type Config struct {
 	ContainerPrefix string `yaml:"container_prefix"`
 	SSHPublicKey    string `yaml:"ssh_public_key"`
 	ContainerUser   string `yaml:"container_user"`
+	DotfilesPath    string `yaml:"dotfiles_path,omitempty"`
 }
 
 // DefaultConfig returns the default configuration
@@ -131,6 +132,7 @@ func Load(path string) (*Config, error) {
 	// Expand paths in config
 	config.SSHPublicKey = expandPath(config.SSHPublicKey)
 	config.SSHKeyPath = expandPath(config.SSHKeyPath)
+	config.DotfilesPath = expandPath(config.DotfilesPath)
 
 	// Set defaults for optional fields if not provided
 	if config.RemoteSocket == "" {

@@ -68,6 +68,16 @@ func TestManager_CreateContainer(t *testing.T) {
 				// Mock SetupWorkspace call
 				m.On("SetupWorkspace", mock.Anything, "dev-myproject", "dev").Return(nil)
 				
+				// Mock copyDotfiles calls (embedded dotfiles)
+				m.On("CopyToContainer", mock.Anything, "dev-myproject",
+					mock.AnythingOfType("string"), 
+					mock.AnythingOfType("string")).Return(nil)
+				m.On("ExecContainer", mock.Anything, "dev-myproject",
+					mock.AnythingOfType("[]string")).Return(nil).Maybe()
+				m.On("ExecContainerWithInput", mock.Anything, "dev-myproject",
+					mock.AnythingOfType("[]string"), 
+					mock.AnythingOfType("string")).Return(nil).Maybe()
+				
 				// Mock cloneRepository call
 				m.On("ExecContainer", mock.Anything, "dev-myproject", 
 					[]string{"git", "clone", "-b", "main", "https://github.com/user/repo.git", "/workspace/project"}).Return(nil)
@@ -433,6 +443,16 @@ func TestManager_WorkspaceOwnership(t *testing.T) {
 	
 	// Mock SetupWorkspace call
 	mockClient.On("SetupWorkspace", mock.Anything, "dev-myproject", "dev").Return(nil)
+	
+	// Mock copyDotfiles calls (embedded dotfiles)
+	mockClient.On("CopyToContainer", mock.Anything, "dev-myproject",
+		mock.AnythingOfType("string"), 
+		mock.AnythingOfType("string")).Return(nil)
+	mockClient.On("ExecContainer", mock.Anything, "dev-myproject",
+		mock.AnythingOfType("[]string")).Return(nil).Maybe()
+	mockClient.On("ExecContainerWithInput", mock.Anything, "dev-myproject",
+		mock.AnythingOfType("[]string"), 
+		mock.AnythingOfType("string")).Return(nil).Maybe()
 	
 	// Mock git clone
 	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 
