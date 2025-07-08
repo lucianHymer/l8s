@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/l8s/l8s/pkg/config"
 )
 
 // ReadPublicKey reads an SSH public key from a file
@@ -65,7 +67,7 @@ func GenerateAuthorizedKeys(publicKey string) string {
 }
 
 // GenerateSSHConfigEntry generates an SSH config entry for a container
-func GenerateSSHConfigEntry(containerName string, sshPort int, containerUser, prefix string) string {
+func GenerateSSHConfigEntry(containerName string, sshPort int, containerUser, prefix, remoteHost string) string {
 	// Remove prefix from container name for the host alias
 	hostAlias := containerName
 	if strings.HasPrefix(containerName, prefix+"-") {
@@ -73,12 +75,16 @@ func GenerateSSHConfigEntry(containerName string, sshPort int, containerUser, pr
 	}
 
 	return fmt.Sprintf(`Host %s
-    HostName localhost
+    HostName %s
     Port %d
     User %s
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
-`, hostAlias, sshPort, containerUser)
+    ForwardAgent yes
+    ControlMaster auto
+    ControlPath ~/.ssh/control-%%r@%%h:%%p
+    ControlPersist 10m
+`, hostAlias, remoteHost, sshPort, containerUser)
 }
 
 // AddSSHConfigEntry adds an SSH config entry to the SSH config file
@@ -275,8 +281,19 @@ func updateSSHConfigEntry(configPath, entry string) error {
 
 // AddSSHConfig adds an SSH config entry for a container
 func AddSSHConfig(name, hostname string, port int, user string) error {
+	cfg, err := config.Load(config.GetConfigPath())
+	if err != nil {
+		return err
+	}
+	
 	sshConfigPath := filepath.Join(GetHomeDir(), ".ssh", "config")
-	entry := GenerateSSHConfigEntry(fmt.Sprintf("dev-%s", name), port, user, "dev")
+	entry := GenerateSSHConfigEntry(
+		fmt.Sprintf("dev-%s", name), 
+		port, 
+		user, 
+		"dev",
+		cfg.RemoteHost, // Use remote host instead of localhost
+	)
 	return AddSSHConfigEntry(sshConfigPath, entry)
 }
 

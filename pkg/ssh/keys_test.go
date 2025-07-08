@@ -153,37 +153,48 @@ func TestSSHConfigEntry(t *testing.T) {
 		containerName string
 		sshPort       int
 		containerUser string
+		remoteHost    string
 		want          string
 	}{
 		{
-			name:          "standard config",
+			name:          "standard config with remote host",
 			containerName: "dev-myproject",
 			sshPort:       2200,
 			containerUser: "dev",
+			remoteHost:    "server.example.com",
 			want: `Host dev-myproject
-    HostName localhost
+    HostName server.example.com
     Port 2200
     User dev
     StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null`,
+    UserKnownHostsFile /dev/null
+    ForwardAgent yes
+    ControlMaster auto
+    ControlPath ~/.ssh/control-%r@%h:%p
+    ControlPersist 10m`,
 		},
 		{
 			name:          "custom user",
 			containerName: "dev-test",
 			sshPort:       2201,
 			containerUser: "lucian",
+			remoteHost:    "remote.server.io",
 			want: `Host dev-test
-    HostName localhost
+    HostName remote.server.io
     Port 2201
     User lucian
     StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null`,
+    UserKnownHostsFile /dev/null
+    ForwardAgent yes
+    ControlMaster auto
+    ControlPath ~/.ssh/control-%r@%h:%p
+    ControlPersist 10m`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entry := GenerateSSHConfigEntry(tt.containerName, tt.sshPort, tt.containerUser, "dev")
+			entry := GenerateSSHConfigEntry(tt.containerName, tt.sshPort, tt.containerUser, "dev", tt.remoteHost)
 			assert.Equal(t, tt.want+"\n", entry)
 		})
 	}
@@ -198,7 +209,7 @@ func TestManageSSHConfig(t *testing.T) {
 		
 		configPath := filepath.Join(sshDir, "config")
 		
-		entry := GenerateSSHConfigEntry("dev-myproject", 2200, "dev", "dev")
+		entry := GenerateSSHConfigEntry("dev-myproject", 2200, "dev", "dev", "localhost")
 		err = AddSSHConfigEntry(configPath, entry)
 		require.NoError(t, err)
 		
@@ -231,7 +242,7 @@ func TestManageSSHConfig(t *testing.T) {
 		err = os.WriteFile(configPath, []byte(existingConfig), 0600)
 		require.NoError(t, err)
 		
-		entry := GenerateSSHConfigEntry("dev-myproject", 2200, "dev", "dev")
+		entry := GenerateSSHConfigEntry("dev-myproject", 2200, "dev", "dev", "localhost")
 		err = AddSSHConfigEntry(configPath, entry)
 		require.NoError(t, err)
 		

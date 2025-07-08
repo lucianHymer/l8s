@@ -60,9 +60,11 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Status: %s\n", cont.Status)
 	fmt.Printf("Created: %s (%s ago)\n", cont.CreatedAt.Format(time.RFC3339), formatDuration(time.Since(cont.CreatedAt)))
 	fmt.Printf("\nSSH Connection:\n")
+	fmt.Printf("  Remote Host: %s\n", cfg.RemoteHost)
 	fmt.Printf("  Port: %d\n", cont.SSHPort)
 	fmt.Printf("  Command: ssh %s-%s\n", cfg.ContainerPrefix, name)
-	fmt.Printf("  Alt command: ssh -p %d %s@localhost\n", cont.SSHPort, cfg.ContainerUser)
+	fmt.Printf("  Direct SSH: ssh -p %d %s@%s\n", cont.SSHPort, cfg.ContainerUser, cfg.RemoteHost)
+	fmt.Printf("\nNote: SSH connections are multiplexed for performance via ControlMaster\n")
 	
 	if cont.GitURL != "" {
 		fmt.Printf("\nGit Repository:\n")
@@ -76,7 +78,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  Workspace: %s-%s-workspace -> /workspace\n", cfg.ContainerPrefix, name)
 	
 	fmt.Printf("\nSSH Config:\n")
-	sshConfigEntry := ssh.GenerateSSHConfigEntry(cont.Name, cont.SSHPort, cfg.ContainerUser, cfg.ContainerPrefix)
+	sshConfigEntry := ssh.GenerateSSHConfigEntry(cont.Name, cont.SSHPort, cfg.ContainerUser, cfg.ContainerPrefix, cfg.RemoteHost)
 	fmt.Print(sshConfigEntry)
 
 	return nil

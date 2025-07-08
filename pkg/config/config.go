@@ -11,6 +11,15 @@ import (
 
 // Config holds the l8s application configuration
 type Config struct {
+	// Remote connection settings (required)
+	RemoteHost   string `yaml:"remote_host"`
+	RemoteUser   string `yaml:"remote_user"`
+	RemoteSocket string `yaml:"remote_socket,omitempty"`
+	
+	// SSH authentication (ssh-agent required)
+	SSHKeyPath string `yaml:"ssh_key_path,omitempty"`
+	
+	// Existing fields
 	SSHPortStart    int    `yaml:"ssh_port_start"`
 	BaseImage       string `yaml:"base_image"`
 	ContainerPrefix string `yaml:"container_prefix"`
@@ -20,7 +29,15 @@ type Config struct {
 
 // DefaultConfig returns the default configuration
 func DefaultConfig() *Config {
+	home, _ := os.UserHomeDir()
 	return &Config{
+		// Remote settings (must be configured)
+		RemoteHost:   "",
+		RemoteUser:   "",
+		RemoteSocket: "/run/podman/podman.sock",
+		SSHKeyPath:   filepath.Join(home, ".ssh", "id_ed25519"),
+		
+		// Existing defaults
 		SSHPortStart:    2200,
 		BaseImage:       "localhost/l8s-fedora:latest",
 		ContainerPrefix: "dev",
@@ -31,6 +48,14 @@ func DefaultConfig() *Config {
 
 // Validate checks if the configuration is valid
 func (c *Config) Validate() error {
+	// Validate remote configuration (required)
+	if c.RemoteHost == "" {
+		return fmt.Errorf("remote_host is required - l8s ONLY supports remote container management")
+	}
+	if c.RemoteUser == "" {
+		return fmt.Errorf("remote_user is required - l8s ONLY supports remote container management")
+	}
+	
 	// Validate SSH port start
 	if c.SSHPortStart < 1024 || c.SSHPortStart > 65000 {
 		return fmt.Errorf("ssh_port_start must be between 1024 and 65000")
@@ -80,7 +105,10 @@ func Load(path string) (*Config, error) {
 
 	// Check if config file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		// No config file, use defaults
+		// No config file, validate defaults
+		if err := config.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid configuration: %w", err)
+		}
 		return config, nil
 	}
 
@@ -102,6 +130,16 @@ func Load(path string) (*Config, error) {
 
 	// Expand paths in config
 	config.SSHPublicKey = expandPath(config.SSHPublicKey)
+	config.SSHKeyPath = expandPath(config.SSHKeyPath)
+
+	// Set defaults for optional fields if not provided
+	if config.RemoteSocket == "" {
+		config.RemoteSocket = "/run/podman/podman.sock"
+	}
+	if config.SSHKeyPath == "" {
+		home, _ := os.UserHomeDir()
+		config.SSHKeyPath = filepath.Join(home, ".ssh", "id_ed25519")
+	}
 
 	return config, nil
 }
