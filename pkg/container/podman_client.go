@@ -27,6 +27,12 @@ import (
 )
 
 // RealPodmanClient implements PodmanClient using actual Podman bindings
+// 
+// Architecture: SSH (non-root) -> System Podman (root via passwordless sudo)
+// - SSH connection is made as non-root user for security
+// - Podman runs as root via passwordless sudo (required because rootless 
+//   Podman doesn't work properly inside unprivileged LXC containers)
+// - Uses system socket at /run/podman/podman.sock
 type RealPodmanClient struct {
 	conn       context.Context
 	remoteHost string

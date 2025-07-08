@@ -72,13 +72,23 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now podman.socket
 ```
 
-### 3.3 Fix Directory Permissions
+### 3.3 Configure Directory Permissions
 
-The Podman runtime directory needs to be accessible:
+The Podman runtime directory needs proper permissions for security:
 
 ```bash
-# Make the podman directory accessible
-sudo chmod 755 /run/podman
+# Set secure permissions on the podman directory
+sudo chgrp podman /run/podman
+sudo chmod 750 /run/podman
+
+# Make these permissions persistent across reboots
+# Since /run is a tmpfs (wiped on reboot), we need systemd-tmpfiles to recreate permissions
+sudo tee /etc/tmpfiles.d/podman.conf << 'EOF'
+# Ensure /run/podman has correct permissions for security
+# Only root and podman group members can access the directory
+# Format: type path mode user group age
+d /run/podman 0750 root podman -
+EOF
 
 # Verify the permissions are correct
 ls -la /run/podman/podman.sock
@@ -182,8 +192,25 @@ If you get "permission denied" errors when accessing the socket:
 4. Check directory permissions:
    ```bash
    ssh poduser@your-server-ip "ls -ld /run/podman"
-   # Should show: drwxr-xr-x ... /run/podman
+   # Should show: drwxr-x--- ... root podman /run/podman
    ```
+   
+   **Important**: After a system reboot, `/run/podman` may revert to 700 permissions (root-only) since `/run` is a tmpfs. If this happens:
+   ```bash
+   ssh poduser@your-server-ip "sudo chgrp podman /run/podman && sudo chmod 750 /run/podman"
+   ```
+   
+   To make this permanent, create a systemd tmpfiles configuration:
+   ```bash
+   sudo tee /etc/tmpfiles.d/podman.conf << 'EOF'
+   # Ensure /run/podman has correct permissions for security
+   # Only root and podman group members can access the directory
+   # Format: type path mode user group age
+   d /run/podman 0750 root podman -
+   EOF
+   ```
+   
+   This tells systemd to recreate the directory with proper permissions on each boot (since `/run` is a tmpfs that gets cleared).
 
 ### SSH Key Issues
 
