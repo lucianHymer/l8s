@@ -23,7 +23,6 @@ import (
 	"github.com/containers/podman/v5/pkg/api/handlers"
 	dockerContainer "github.com/docker/docker/api/types/container"
 	"github.com/l8s/l8s/pkg/config"
-	"github.com/l8s/l8s/pkg/ssh"
 )
 
 // RealPodmanClient implements PodmanClient using actual Podman bindings

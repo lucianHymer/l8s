@@ -334,7 +334,41 @@ func (m *Manager) copyDotfiles(ctx context.Context, containerName string) error 
 		logging.WithField("container", containerName))
 	
 	// Copy dotfiles to container
-	return CopyDotfilesToContainer(ctx, m.client, containerName, dotfilesDir, m.config.ContainerUser)
+	if err := CopyDotfilesToContainer(ctx, m.client, containerName, dotfilesDir, m.config.ContainerUser); err != nil {
+		return err
+	}
+	
+	// Apply host git configuration
+	return m.applyHostGitConfig(ctx, containerName)
+}
+
+// applyHostGitConfig reads git config from host and applies it to the container
+func (m *Manager) applyHostGitConfig(ctx context.Context, containerName string) error {
+	// Read host git identity
+	identity, err := ReadHostGitIdentity()
+	if err != nil {
+		// Log warning but don't fail
+		m.logger.Warn("failed to read host git identity",
+			logging.WithError(err))
+		return nil
+	}
+	
+	// If we have any git config, apply it
+	if identity.Name != "" || identity.Email != "" {
+		m.logger.Info("applying host git configuration to container",
+			logging.WithField("container", containerName),
+			logging.WithField("user.name", identity.Name),
+			logging.WithField("user.email", identity.Email))
+		
+		if err := ApplyGitConfigToContainer(ctx, m.client, containerName, m.config.ContainerUser, identity); err != nil {
+			// Log warning but don't fail container creation
+			m.logger.Warn("failed to apply git config to container",
+				logging.WithError(err),
+				logging.WithField("container", containerName))
+		}
+	}
+	
+	return nil
 }
 
 // cloneRepository clones the git repository in the container
