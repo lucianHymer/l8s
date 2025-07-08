@@ -60,7 +60,7 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 	color.Printf("🎳 {cyan}Creating container:{reset} {bold}%s-%s{reset}\n", f.Config.ContainerPrefix, name)
 	
 	ctx := context.Background()
-	cont, err := f.ContainerMgr.CreateContainer(ctx, name, "", "", sshKey)
+	cont, err := f.ContainerMgr.CreateContainer(ctx, name, sshKey)
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,11 @@ func (f *CommandFactory) runList(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, c := range containers {
-		gitRemote := formatGitStatus(c.GitURL != "")
+		// Check if git remote exists for this container
+		remotes, _ := f.GitClient.ListRemotes(".")
+		containerName := strings.TrimPrefix(c.Name, f.Config.ContainerPrefix+"-")
+		_, hasRemote := remotes[containerName]
+		gitRemote := formatGitStatus(hasRemote)
 		
 		created := formatDuration(time.Since(c.CreatedAt))
 		status := formatStatus(c.Status)
@@ -264,8 +268,14 @@ func (f *CommandFactory) runInfo(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Container: %s\n", cont.Name)
 	fmt.Printf("Status: %s\n", cont.Status)
 	fmt.Printf("SSH Port: %d\n", cont.SSHPort)
-	fmt.Printf("Git URL: %s\n", cont.GitURL)
-	fmt.Printf("Git Branch: %s\n", cont.GitBranch)
+	// Check if git remote exists
+	remotes, _ := f.GitClient.ListRemotes(".")
+	containerName := strings.TrimPrefix(cont.Name, f.Config.ContainerPrefix+"-")
+	if remoteURL, hasRemote := remotes[containerName]; hasRemote {
+		fmt.Printf("Git Remote: %s -> %s\n", containerName, remoteURL)
+	} else {
+		fmt.Printf("Git Remote: (none)\n")
+	}
 	fmt.Printf("Created: %s\n", cont.CreatedAt.Format(time.RFC3339))
 	
 	fmt.Printf("\nSSH Connection:\n")

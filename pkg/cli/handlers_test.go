@@ -151,7 +151,7 @@ func TestCreateCommandNewFlow(t *testing.T) {
 				gc.On("GetCurrentBranch", ".").Return("main", nil)
 				
 				// Create container with empty git URL
-				cm.On("CreateContainer", mock.Anything, "mycontainer", "", "", "test-key").
+				cm.On("CreateContainer", mock.Anything, "mycontainer", "test-key").
 					Return(&container.Container{
 						Name:    "mycontainer",
 						SSHPort: 2222,
@@ -177,7 +177,7 @@ func TestCreateCommandNewFlow(t *testing.T) {
 				// Don't need to get current branch when branch is specified
 				
 				// Create container
-				cm.On("CreateContainer", mock.Anything, "mycontainer", "", "", "test-key").
+				cm.On("CreateContainer", mock.Anything, "mycontainer", "test-key").
 					Return(&container.Container{
 						Name:    "mycontainer",
 						SSHPort: 2222,
@@ -211,7 +211,7 @@ func TestCreateCommandNewFlow(t *testing.T) {
 				gc.On("IsGitRepository", ".").Return(true)
 				gc.On("GetCurrentBranch", ".").Return("main", nil)
 				
-				cm.On("CreateContainer", mock.Anything, "mycontainer", "", "", "test-key").
+				cm.On("CreateContainer", mock.Anything, "mycontainer", "test-key").
 					Return(&container.Container{
 						Name:    "mycontainer",
 						SSHPort: 2222,
@@ -233,7 +233,7 @@ func TestCreateCommandNewFlow(t *testing.T) {
 				gc.On("IsGitRepository", ".").Return(true)
 				gc.On("GetCurrentBranch", ".").Return("main", nil)
 				
-				cm.On("CreateContainer", mock.Anything, "mycontainer", "", "", "test-key").
+				cm.On("CreateContainer", mock.Anything, "mycontainer", "test-key").
 					Return(&container.Container{
 						Name:    "mycontainer",
 						SSHPort: 2222,

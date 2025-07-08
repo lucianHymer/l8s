@@ -10,8 +10,6 @@ type Container struct {
 	Name      string
 	Status    string
 	SSHPort   int
-	GitURL    string
-	GitBranch string
 	CreatedAt time.Time
 	Labels    map[string]string
 }
@@ -19,8 +17,6 @@ type Container struct {
 // ContainerConfig holds configuration for creating a container
 type ContainerConfig struct {
 	Name          string
-	GitURL        string
-	GitBranch     string
 	SSHPort       int
 	SSHPublicKey  string
 	BaseImage     string
@@ -56,7 +52,5 @@ type Config struct {
 // Labels used for container metadata
 const (
 	LabelManaged  = "l8s.managed"
-	LabelGitURL   = "l8s.git.url"
-	LabelGitBranch = "l8s.git.branch"
 	LabelSSHPort  = "l8s.ssh.port"
 )

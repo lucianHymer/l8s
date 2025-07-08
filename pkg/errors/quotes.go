@@ -9,11 +9,11 @@ import (
 var lebowskiQuotes = []string{
 	"Am I the only one around here who gives a shit about the rules?!",
 	"You're out of your element, Donny!",
-	"This aggression will not stand, man",
-	"You're entering a world of pain",
-	"Obviously you're not a golfer",
-	"Do you see what happens, Larry?",
-	"Calmer than you are",
+	"This aggression will not stand, man!",
+	"You're entering a world of pain!",
+	"Obviously you're not a golfer.",
+	"Do you see what happens, Larry?!",
+	"Calmer than you are.",
 }
 
 // No need for init() - Go 1.20+ auto-seeds rand
@@ -23,18 +23,10 @@ func LebowskiError() string {
 	return lebowskiQuotes[rand.Intn(len(lebowskiQuotes))]
 }
 
-// WrapError wraps an error with a random Lebowski quote
-func WrapError(err error) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("%s: %w", LebowskiError(), err)
-}
-
 // PrintError prints an error with a Lebowski quote to stderr
 func PrintError(err error) {
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		fmt.Fprintf(os.Stderr, "🎳 %s\n", LebowskiError())
-		fmt.Fprintf(os.Stderr, "   %v\n", err)
 	}
 }

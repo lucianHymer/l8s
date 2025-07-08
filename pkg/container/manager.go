@@ -13,7 +13,6 @@ import (
 
 	"l8s/pkg/cleanup"
 	"l8s/pkg/embed"
-	"l8s/pkg/git"
 	"l8s/pkg/logging"
 	"l8s/pkg/ssh"
 )
@@ -36,7 +35,7 @@ func NewManager(client PodmanClient, config Config) *Manager {
 }
 
 // CreateContainer creates a new development container
-func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, sshKey string) (*Container, error) {
+func (m *Manager) CreateContainer(ctx context.Context, name, sshKey string) (*Container, error) {
 	// Create cleanup handler
 	cleaner := cleanup.New(m.logger)
 	defer func() {
@@ -64,15 +63,6 @@ func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, ssh
 		return nil, fmt.Errorf("container '%s' already exists", name)
 	}
 
-	// Validate git URL
-	if err := git.ValidateGitURL(gitURL); err != nil {
-		return nil, err
-	}
-
-	// Use provided branch or default to main
-	if branch == "" {
-		branch = "main"
-	}
 
 	// Find available SSH port
 	sshPort, err := m.client.FindAvailablePort(m.config.SSHPortStart)
@@ -82,23 +72,17 @@ func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, ssh
 
 	m.logger.Info("creating container",
 		logging.WithField("name", name),
-		logging.WithField("git_url", gitURL),
-		logging.WithField("branch", branch),
 		logging.WithField("ssh_port", sshPort))
 
 	// Create container configuration
 	config := ContainerConfig{
 		Name:          containerName,
-		GitURL:        gitURL,
-		GitBranch:     branch,
 		SSHPort:       sshPort,
 		SSHPublicKey:  sshKey,
 		BaseImage:     m.config.BaseImage,
 		ContainerUser: m.config.ContainerUser,
 		Labels: map[string]string{
 			LabelManaged:   "true",
-			LabelGitURL:    gitURL,
-			LabelGitBranch: branch,
 			LabelSSHPort:   fmt.Sprintf("%d", sshPort),
 		},
 	}
@@ -152,18 +136,10 @@ func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, ssh
 			logging.WithField("container", containerName))
 	}
 
-	// Initialize git repository (only if gitURL is empty - new flow)
-	if gitURL == "" {
-		if err := m.initializeGitRepository(ctx, containerName); err != nil {
-			cleaner.Cleanup(ctx)
-			return nil, fmt.Errorf("failed to initialize repository: %w", err)
-		}
-	} else {
-		// Legacy flow - clone repository
-		if err := m.cloneRepository(ctx, containerName, gitURL, branch); err != nil {
-			cleaner.Cleanup(ctx)
-			return nil, fmt.Errorf("failed to clone repository: %w", err)
-		}
+	// Initialize empty git repository
+	if err := m.initializeGitRepository(ctx, containerName); err != nil {
+		cleaner.Cleanup(ctx)
+		return nil, fmt.Errorf("failed to initialize repository: %w", err)
 	}
 
 	// Add SSH config entry
@@ -450,22 +426,6 @@ func (m *Manager) initializeGitRepository(ctx context.Context, containerName str
 }
 
 // cloneRepository clones the git repository in the container
-func (m *Manager) cloneRepository(ctx context.Context, containerName, gitURL, branch string) error {
-	// Check if project directory already exists
-	checkCmd := []string{"test", "-d", "/workspace/project"}
-	if err := m.client.ExecContainer(ctx, containerName, checkCmd); err == nil {
-		// Directory exists, skip cloning
-		m.logger.Warn("project directory already exists, skipping clone - this is likely from a previous container with --keep-volumes. Please verify it contains what you expect or remove and recreate the container without --keep-volumes",
-			logging.WithField("container", containerName),
-			logging.WithField("path", "/workspace/project"))
-		return nil
-	}
-
-	// Run git clone as the container user using su
-	cloneCmd := []string{"su", "-", m.config.ContainerUser, "-c", 
-		fmt.Sprintf("git clone -b %s %s /workspace/project", branch, gitURL)}
-	return m.client.ExecContainer(ctx, containerName, cloneCmd)
-}
 
 // addGitRemote adds a git remote for the container
 func (m *Manager) addGitRemote(name, containerName string, sshPort int) error {

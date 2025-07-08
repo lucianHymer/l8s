@@ -84,7 +84,7 @@ func TestLazyCommandFactory(t *testing.T) {
 // Mock implementations for testing
 type MockContainerManager struct{}
 
-func (m *MockContainerManager) CreateContainer(ctx context.Context, name, gitURL, branch, sshKey string) (*container.Container, error) {
+func (m *MockContainerManager) CreateContainer(ctx context.Context, name, sshKey string) (*container.Container, error) {
 	return &container.Container{Name: name}, nil
 }
 

@@ -34,23 +34,3 @@ func TestLebowskiError(t *testing.T) {
 		t.Errorf("LebowskiError returned unexpected quote: %s", quote)
 	}
 }
-
-func TestWrapError(t *testing.T) {
-	// Test wrapping a real error
-	originalErr := fmt.Errorf("something went wrong")
-	wrappedErr := WrapError(originalErr)
-	
-	if wrappedErr == nil {
-		t.Error("WrapError returned nil for non-nil error")
-	}
-	
-	// Check that the wrapped error contains the original error
-	if !strings.Contains(wrappedErr.Error(), "something went wrong") {
-		t.Errorf("WrapError didn't include original error: %v", wrappedErr)
-	}
-	
-	// Test wrapping nil
-	if WrapError(nil) != nil {
-		t.Error("WrapError should return nil for nil input")
-	}
-}

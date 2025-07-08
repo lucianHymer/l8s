@@ -244,8 +244,6 @@ func (c *RealPodmanClient) CreateContainer(ctx context.Context, config Container
 		Name:      config.Name,
 		Status:    inspect.State.Status,
 		SSHPort:   config.SSHPort,
-		GitURL:    config.GitURL,
-		GitBranch: config.GitBranch,
 		CreatedAt: inspect.Created,
 		Labels:    inspect.Config.Labels,
 	}
@@ -341,8 +339,6 @@ func (c *RealPodmanClient) ListContainers(ctx context.Context) ([]*Container, er
 			Name:      c.Names[0],
 			Status:    c.State,
 			SSHPort:   sshPort,
-			GitURL:    c.Labels[LabelGitURL],
-			GitBranch: c.Labels[LabelGitBranch],
 			CreatedAt: c.Created,
 			Labels:    c.Labels,
 		}
@@ -388,8 +384,6 @@ func (c *RealPodmanClient) GetContainerInfo(ctx context.Context, name string) (*
 		Name:      name,
 		Status:    inspect.State.Status,
 		SSHPort:   sshPort,
-		GitURL:    inspect.Config.Labels[LabelGitURL],
-		GitBranch: inspect.Config.Labels[LabelGitBranch],
 		CreatedAt: inspect.Created,
 		Labels:    inspect.Config.Labels,
 	}

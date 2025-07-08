@@ -8,7 +8,7 @@ import (
 
 // ContainerManager defines the interface for container management operations
 type ContainerManager interface {
-	CreateContainer(ctx context.Context, name, gitURL, branch, sshKey string) (*container.Container, error)
+	CreateContainer(ctx context.Context, name, sshKey string) (*container.Container, error)
 	ListContainers(ctx context.Context) ([]*container.Container, error)
 	RemoveContainer(ctx context.Context, name string, removeVolumes bool) error
 	StartContainer(ctx context.Context, name string) error
