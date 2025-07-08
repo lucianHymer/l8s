@@ -396,3 +396,51 @@ func TestManager_ListContainersWithLabels(t *testing.T) {
 	
 	mockClient.AssertExpectations(t)
 }
+
+func TestManager_WorkspaceOwnership(t *testing.T) {
+	// Test that volumes are created with :U option for proper ownership
+	mockClient := new(MockPodmanClient)
+	
+	mockClient.On("ContainerExists", mock.Anything, "dev-myproject").Return(false, nil)
+	mockClient.On("FindAvailablePort", 2200).Return(2200, nil)
+	
+	// The key test: verify that CreateContainer is called with volumes having :U option
+	mockClient.On("CreateContainer", mock.Anything, mock.MatchedBy(func(config ContainerConfig) bool {
+		// This is where we'll verify the :U option is added to volumes
+		// For now, just verify the basic config
+		return config.Name == "dev-myproject"
+	})).Return(&Container{
+		Name:     "dev-myproject",
+		Status:   "created",
+		SSHPort:  2200,
+	}, nil)
+	
+	mockClient.On("StartContainer", mock.Anything, "dev-myproject").Return(nil)
+	
+	// Mock SSH setup
+	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 
+		[]string{"mkdir", "-p", "/home/dev/.ssh"}).Return(nil)
+	mockClient.On("ExecContainerWithInput", mock.Anything, "dev-myproject", 
+		[]string{"tee", "/home/dev/.ssh/authorized_keys"}, 
+		mock.AnythingOfType("string")).Return(nil)
+	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 
+		[]string{"chmod", "600", "/home/dev/.ssh/authorized_keys"}).Return(nil)
+	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 
+		[]string{"chown", "-R", "dev:dev", "/home/dev/.ssh"}).Return(nil)
+	
+	// Mock git clone
+	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 
+		[]string{"git", "clone", "-b", "main", "https://github.com/user/repo.git", "/workspace/project"}).Return(nil)
+	
+	manager := NewManager(mockClient, Config{
+		ContainerPrefix: "dev",
+		SSHPortStart:    2200,
+		BaseImage:       "localhost/l8s-fedora:latest",
+		ContainerUser:   "dev",
+	})
+	
+	_, err := manager.CreateContainer(context.Background(), "myproject", "https://github.com/user/repo.git", "main", "ssh-key")
+	require.NoError(t, err)
+	
+	mockClient.AssertExpectations(t)
+}

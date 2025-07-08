@@ -151,10 +151,12 @@ func (c *RealPodmanClient) CreateContainer(ctx context.Context, config Container
 		&specgen.NamedVolume{
 			Name: homeVolume,
 			Dest: fmt.Sprintf("/home/%s", config.ContainerUser),
+			Options: []string{"U"},
 		},
 		&specgen.NamedVolume{
 			Name: workspaceVolume,
 			Dest: "/workspace",
+			Options: []string{"U"},
 		},
 	}
 
