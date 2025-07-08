@@ -84,9 +84,10 @@ func (f *CommandFactory) SSHCmd() *cobra.Command {
 // ListCmd returns the list command with injected dependencies
 func (f *CommandFactory) ListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
-		Short: "List all l8s containers",
-		RunE:  f.runList,
+		Use:     "list",
+		Short:   "List all l8s containers",
+		RunE:    f.runList,
+		Aliases: []string{"ls"},
 	}
 }
 
@@ -112,12 +113,18 @@ func (f *CommandFactory) StopCmd() *cobra.Command {
 
 // RemoveCmd returns the remove command with injected dependencies
 func (f *CommandFactory) RemoveCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "remove <name>",
-		Short: "Remove a container",
-		Args:  cobra.ExactArgs(1),
-		RunE:  f.runRemove,
+	cmd := &cobra.Command{
+		Use:     "remove <name>",
+		Short:   "Remove a container",
+		Args:    cobra.ExactArgs(1),
+		RunE:    f.runRemove,
+		Aliases: []string{"rm"},
 	}
+	
+	cmd.Flags().BoolP("force", "f", false, "Skip confirmation prompt")
+	cmd.Flags().Bool("keep-volumes", false, "Keep volumes when removing container")
+	
+	return cmd
 }
 
 // InfoCmd returns the info command with injected dependencies
@@ -171,6 +178,22 @@ func (f *CommandFactory) ExecCmd() *cobra.Command {
 		Short: "Execute command in container",
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  f.runExec,
+	}
+}
+
+// InitCmd returns the init command with injected dependencies
+func (f *CommandFactory) InitCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "init",
+		Short: "Initialize l8s configuration",
+		Long: `Initialize l8s configuration by setting up remote server connection details.
+	
+l8s ONLY supports remote container management for security isolation.
+You'll need:
+- A remote server with Podman installed
+- SSH access to the server
+- SSH key authentication configured`,
+		RunE: f.runInit,
 	}
 }
 
@@ -230,4 +253,8 @@ func (s *sshClientAdapter) GenerateAuthorizedKeys(publicKey string) string {
 
 func (s *sshClientAdapter) IsPortAvailable(port int) bool {
 	return ssh.IsPortAvailable(port)
+}
+
+func (s *sshClientAdapter) ValidatePublicKey(key string) error {
+	return ssh.ValidatePublicKey(key)
 }

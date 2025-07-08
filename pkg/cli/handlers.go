@@ -5,10 +5,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
 
+	"github.com/l8s/l8s/pkg/color"
+	"github.com/l8s/l8s/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -36,9 +40,14 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 		}
 		sshKey = key
 	}
+	
+	// Validate SSH key
+	if err := f.SSHClient.ValidatePublicKey(sshKey); err != nil {
+		return fmt.Errorf("invalid SSH public key: %w", err)
+	}
 
 	// Create container
-	fmt.Fprintf(cmd.OutOrStdout(), "🎳 Creating container: %s-%s\n", f.Config.ContainerPrefix, name)
+	color.Printf("🎳 {cyan}Creating container:{reset} {bold}%s-%s{reset}\n", f.Config.ContainerPrefix, name)
 	
 	ctx := context.Background()
 	cont, err := f.ContainerMgr.CreateContainer(ctx, name, gitURL, branch, sshKey)
@@ -47,15 +56,15 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Display success message
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ SSH port: %d\n", cont.SSHPort)
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Repository cloned\n")
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ SSH config entry added\n")
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Git remote '%s' added (%s-%s:/workspace/project)\n", name, f.Config.ContainerPrefix, name)
-	fmt.Fprintf(cmd.OutOrStdout(), "\nConnection options:\n")
-	fmt.Fprintf(cmd.OutOrStdout(), "- l8s ssh %s\n", name)
-	fmt.Fprintf(cmd.OutOrStdout(), "- ssh %s-%s\n", f.Config.ContainerPrefix, name)
-	fmt.Fprintf(cmd.OutOrStdout(), "- git push %s\n", name)
-	fmt.Fprintf(cmd.OutOrStdout(), "\n🎳 Her life is in your hands, dude.\n")
+	color.Printf("{green}✓{reset} SSH port: {bold}%d{reset}\n", cont.SSHPort)
+	color.Printf("{green}✓{reset} Repository cloned\n")
+	color.Printf("{green}✓{reset} SSH config entry added\n")
+	color.Printf("{green}✓{reset} Git remote '{bold}%s{reset}' added (%s-%s:/workspace/project)\n", name, f.Config.ContainerPrefix, name)
+	color.Printf("\n{cyan}Connection options:{reset}\n")
+	color.Printf("- {bold}l8s ssh %s{reset}\n", name)
+	color.Printf("- {bold}ssh %s-%s{reset}\n", f.Config.ContainerPrefix, name)
+	color.Printf("- {bold}git push %s{reset}\n", name)
+	color.Printf("\n🎳 Her life is in your hands, dude.\n")
 
 	return nil
 }
@@ -84,18 +93,28 @@ func (f *CommandFactory) runList(cmd *cobra.Command, args []string) error {
 
 	// Create table writer
 	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSTATUS\tSSH PORT\tGIT REMOTE\tCREATED")
+	
+	// Print header in bold
+	if os.Getenv("NO_COLOR") == "" {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+			color.Bold("NAME"),
+			color.Bold("STATUS"),
+			color.Bold("SSH PORT"),
+			color.Bold("GIT REMOTE"),
+			color.Bold("CREATED"))
+	} else {
+		fmt.Fprintln(w, "NAME\tSTATUS\tSSH PORT\tGIT REMOTE\tCREATED")
+	}
 
 	for _, c := range containers {
-		gitRemote := "✗"
-		if c.GitURL != "" {
-			gitRemote = "✓"
-		}
+		gitRemote := formatGitStatus(c.GitURL != "")
 		
 		created := formatDuration(time.Since(c.CreatedAt))
+		status := formatStatus(c.Status)
+		
 		fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n", 
 			strings.TrimPrefix(c.Name, f.Config.ContainerPrefix+"-"),
-			c.Status,
+			status,
 			c.SSHPort,
 			gitRemote,
 			created,
@@ -115,7 +134,7 @@ func (f *CommandFactory) runStart(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Container '%s' started\n", name)
+	color.Printf("{green}✓{reset} Container '{bold}%s{reset}' started\n", name)
 	return nil
 }
 
@@ -129,7 +148,7 @@ func (f *CommandFactory) runStop(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Container '%s' stopped\n", name)
+	color.Printf("{green}✓{reset} Container '{bold}%s{reset}' stopped\n", name)
 	return nil
 }
 
@@ -137,18 +156,30 @@ func (f *CommandFactory) runStop(cmd *cobra.Command, args []string) error {
 func (f *CommandFactory) runRemove(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	
-	// Confirm removal
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("Remove container %s-%s and volumes? (y/N): ", f.Config.ContainerPrefix, name)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return err
-	}
+	// Get flags
+	force, _ := cmd.Flags().GetBool("force")
+	keepVolumes, _ := cmd.Flags().GetBool("keep-volumes")
 	
-	response = strings.TrimSpace(strings.ToLower(response))
-	if response != "y" && response != "yes" {
-		fmt.Println("Aborted")
-		return nil
+	// Confirm removal unless --force is specified
+	if !force {
+		reader := bufio.NewReader(os.Stdin)
+		prompt := fmt.Sprintf("Remove container %s-%s", f.Config.ContainerPrefix, name)
+		if !keepVolumes {
+			prompt += " and volumes"
+		}
+		prompt += "? (y/N): "
+		fmt.Print(prompt)
+		
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			return err
+		}
+		
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response != "y" && response != "yes" {
+			fmt.Println("Aborted")
+			return nil
+		}
 	}
 	
 	ctx := context.Background()
@@ -158,17 +189,22 @@ func (f *CommandFactory) runRemove(cmd *cobra.Command, args []string) error {
 	if err == nil {
 		// Try to remove remote, but don't fail if it doesn't exist
 		_ = f.GitClient.RemoveRemote(currentDir, name)
-		fmt.Printf("✓ Git remote removed\n")
+		color.Printf("{green}✓{reset} Git remote removed\n")
 	}
 	
 	// Remove container
-	err = f.ContainerMgr.RemoveContainer(ctx, name, true)
+	removeVolumes := !keepVolumes
+	err = f.ContainerMgr.RemoveContainer(ctx, name, removeVolumes)
 	if err != nil {
 		return err
 	}
 	
-	fmt.Printf("✓ Container removed\n")
-	fmt.Printf("✓ Volumes removed\n")
+	color.Printf("{green}✓{reset} Container removed\n")
+	if removeVolumes {
+		color.Printf("{green}✓{reset} Volumes removed\n")
+	} else {
+		color.Printf("{yellow}!{reset} Volumes kept\n")
+	}
 	
 	return nil
 }
@@ -220,7 +256,7 @@ func (f *CommandFactory) runBuild(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	
-	fmt.Printf("✓ Image built successfully\n")
+	color.Printf("{green}✓{reset} Image built successfully\n")
 	return nil
 }
 
@@ -247,7 +283,7 @@ func (f *CommandFactory) runRemoteAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	
-	fmt.Printf("✓ Git remote '%s' added\n", name)
+	color.Printf("{green}✓{reset} Git remote '{bold}%s{reset}' added\n", name)
 	return nil
 }
 
@@ -267,7 +303,7 @@ func (f *CommandFactory) runRemoteRemove(cmd *cobra.Command, args []string) erro
 		return err
 	}
 	
-	fmt.Printf("✓ Git remote '%s' removed\n", name)
+	color.Printf("{green}✓{reset} Git remote '{bold}%s{reset}' removed\n", name)
 	return nil
 }
 
@@ -292,4 +328,227 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%dh ago", int(d.Hours()))
 	}
 	return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+}
+
+// formatStatus returns a colored status string
+func formatStatus(status string) string {
+	if os.Getenv("NO_COLOR") != "" {
+		return status
+	}
+	
+	switch status {
+	case "running":
+		return color.Green + status + color.Reset
+	case "stopped", "exited":
+		return color.Red + status + color.Reset
+	case "paused":
+		return color.Yellow + status + color.Reset
+	default:
+		return status
+	}
+}
+
+// formatGitStatus returns a colored git status indicator
+func formatGitStatus(hasGit bool) string {
+	if os.Getenv("NO_COLOR") != "" {
+		if hasGit {
+			return "✓"
+		}
+		return "✗"
+	}
+	
+	if hasGit {
+		return color.Green + "✓" + color.Reset
+	}
+	return color.Red + "✗" + color.Reset
+}
+
+// runInit handles the init command
+func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
+	fmt.Println("=== L8s Configuration Setup ===")
+	fmt.Println()
+	fmt.Println("l8s ONLY supports remote container management for security isolation.")
+	fmt.Println("This setup will configure your connection to a remote Podman server.")
+	fmt.Println()
+
+	// Create config with defaults
+	cfg := config.DefaultConfig()
+
+	// Prompt for remote server configuration
+	fmt.Println("=== Remote Server Configuration ===")
+	
+	remoteHost, err := promptWithDefault("Remote server hostname/IP", "")
+	if err != nil {
+		return err
+	}
+	if remoteHost == "" {
+		return fmt.Errorf("remote server hostname is required")
+	}
+	cfg.RemoteHost = remoteHost
+	
+	remoteUser, err := promptWithDefault("Remote server username", "podman")
+	if err != nil {
+		return err
+	}
+	cfg.RemoteUser = remoteUser
+	
+	// Show sudo setup instructions for non-root users
+	if remoteUser != "root" {
+		fmt.Printf("\n📝 Note: Using non-root user '%s'. You'll need to set up sudo access:\n", remoteUser)
+		fmt.Printf("   On the remote server, run:\n")
+		fmt.Printf("   echo \"%s ALL=(ALL) NOPASSWD: /usr/bin/podman\" | sudo tee /etc/sudoers.d/podman\n\n", remoteUser)
+	}
+	
+	remoteSocket, err := promptWithDefault("Remote Podman socket path", cfg.RemoteSocket)
+	if err != nil {
+		return err
+	}
+	cfg.RemoteSocket = remoteSocket
+	
+	// Test SSH connectivity
+	fmt.Printf("\nTesting SSH connection to %s@%s...\n", cfg.RemoteUser, cfg.RemoteHost)
+	testCmd := exec.Command("ssh", "-o", "ConnectTimeout=5", 
+		fmt.Sprintf("%s@%s", cfg.RemoteUser, cfg.RemoteHost), "echo", "OK")
+	output, err := testCmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Failed to connect via SSH: %v\n", err)
+		fmt.Printf("Output: %s\n", string(output))
+		fmt.Printf("\nPlease ensure:\n")
+		fmt.Printf("1. SSH key is configured: ssh-copy-id %s@%s\n", cfg.RemoteUser, cfg.RemoteHost)
+		fmt.Printf("2. Server is accessible\n")
+		if cfg.RemoteUser != "root" {
+			fmt.Printf("3. User has sudo access to Podman (see instructions above)\n")
+		} else {
+			fmt.Printf("3. User has Podman access\n")
+		}
+		return fmt.Errorf("SSH connection test failed")
+	}
+	color.Printf("{green}✓{reset} SSH connection successful\n")
+	
+	// Prompt for other configuration
+	fmt.Println("\n=== Container Configuration ===")
+	
+	sshKeyPath, err := promptWithDefault("SSH private key path", cfg.SSHKeyPath)
+	if err != nil {
+		return err
+	}
+	cfg.SSHKeyPath = sshKeyPath
+	
+	baseImage, err := promptWithDefault("Base container image", cfg.BaseImage)
+	if err != nil {
+		return err
+	}
+	cfg.BaseImage = baseImage
+	
+	containerPrefix, err := promptWithDefault("Container name prefix", cfg.ContainerPrefix)
+	if err != nil {
+		return err
+	}
+	cfg.ContainerPrefix = containerPrefix
+	
+	containerUser, err := promptWithDefault("Container user", cfg.ContainerUser)
+	if err != nil {
+		return err
+	}
+	cfg.ContainerUser = containerUser
+	
+	sshPortStart, err := promptWithDefault("SSH port range start", fmt.Sprintf("%d", cfg.SSHPortStart))
+	if err != nil {
+		return err
+	}
+	if _, err := fmt.Sscanf(sshPortStart, "%d", &cfg.SSHPortStart); err != nil {
+		return fmt.Errorf("invalid port number: %w", err)
+	}
+	
+	// Auto-detect SSH public key if not specified
+	if cfg.SSHPublicKey == "" {
+		fmt.Println("\nDetecting SSH public key...")
+		// Try common locations
+		possibleKeys := []string{
+			cfg.SSHKeyPath + ".pub",
+			"~/.ssh/id_ed25519.pub",
+			"~/.ssh/id_rsa.pub",
+			"~/.ssh/id_ecdsa.pub",
+		}
+		
+		for _, keyPath := range possibleKeys {
+			expandedPath := expandPath(keyPath)
+			if _, err := os.Stat(expandedPath); err == nil {
+				cfg.SSHPublicKey = keyPath
+				color.Printf("{green}✓{reset} Found SSH public key at %s\n", keyPath)
+				break
+			}
+		}
+		
+		if cfg.SSHPublicKey == "" {
+			pubKeyPath, err := promptWithDefault("SSH public key path", "~/.ssh/id_ed25519.pub")
+			if err != nil {
+				return err
+			}
+			cfg.SSHPublicKey = pubKeyPath
+		}
+	}
+	
+	// Save configuration
+	configPath := config.GetConfigPath()
+	fmt.Printf("\nSaving configuration to %s...\n", configPath)
+	
+	if err := cfg.Save(configPath); err != nil {
+		return fmt.Errorf("failed to save configuration: %w", err)
+	}
+	
+	fmt.Println("\n=== Configuration Complete ===")
+	fmt.Printf("Configuration saved to: %s\n", configPath)
+	fmt.Println("\nNext steps:")
+	fmt.Printf("1. Ensure Podman is running on %s\n", cfg.RemoteHost)
+	if cfg.RemoteUser != "root" {
+		fmt.Printf("   - Set up sudo access: echo \"%s ALL=(ALL) NOPASSWD: /usr/bin/podman\" | sudo tee /etc/sudoers.d/podman\n", cfg.RemoteUser)
+	}
+	fmt.Printf("2. Run 'l8s create <name> <git-url>' to create your first container\n")
+	fmt.Printf("3. Use 'l8s list' to see all containers\n")
+	
+	return nil
+}
+
+// promptWithDefault prompts the user for input with a default value
+func promptWithDefault(prompt, defaultValue string) (string, error) {
+	reader := bufio.NewReader(os.Stdin)
+	
+	if defaultValue != "" {
+		fmt.Printf("%s [%s]: ", prompt, defaultValue)
+	} else {
+		fmt.Printf("%s: ", prompt)
+	}
+	
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	
+	input = strings.TrimSpace(input)
+	if input == "" && defaultValue != "" {
+		return defaultValue, nil
+	}
+	
+	return input, nil
+}
+
+// expandPath expands tilde in paths
+func expandPath(path string) string {
+	if path == "" {
+		return path
+	}
+
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = os.Getenv("HOME")
+			if home == "" {
+				return path
+			}
+		}
+		return filepath.Join(home, path[2:])
+	}
+
+	return path
 }

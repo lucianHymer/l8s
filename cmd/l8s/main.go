@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/l8s/l8s/cmd/commands"
 	"github.com/l8s/l8s/pkg/cli"
 	"github.com/l8s/l8s/pkg/errors"
 	"github.com/l8s/l8s/pkg/logging"
@@ -29,14 +28,12 @@ accessible via SSH using key-based authentication.`,
 		SilenceErrors: true,
 	}
 
-	// Add init command (doesn't require config)
-	rootCmd.AddCommand(commands.InitCmd())
-
 	// Create lazy command factory
 	factory := cli.NewLazyCommandFactory()
 
 	// Add commands from factory - these are lightweight and don't require config
 	rootCmd.AddCommand(
+		factory.InitCmd(),    // Init doesn't require config
 		factory.CreateCmd(),
 		factory.SSHCmd(),
 		factory.ListCmd(),

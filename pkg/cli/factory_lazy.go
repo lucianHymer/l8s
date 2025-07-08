@@ -129,8 +129,9 @@ func (f *LazyCommandFactory) SSHCmd() *cobra.Command {
 // ListCmd returns the list command with lazy initialization
 func (f *LazyCommandFactory) ListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
-		Short: "List all l8s containers",
+		Use:     "list",
+		Short:   "List all l8s containers",
+		Aliases: []string{"ls"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -190,10 +191,11 @@ func (f *LazyCommandFactory) StopCmd() *cobra.Command {
 
 // RemoveCmd returns the remove command with lazy initialization
 func (f *LazyCommandFactory) RemoveCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "remove <name>",
-		Short: "Remove a container",
-		Args:  cobra.ExactArgs(1),
+	cmd := &cobra.Command{
+		Use:     "remove <name>",
+		Short:   "Remove a container",
+		Args:    cobra.ExactArgs(1),
+		Aliases: []string{"rm"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -207,6 +209,11 @@ func (f *LazyCommandFactory) RemoveCmd() *cobra.Command {
 			return origFactory.runRemove(cmd, args)
 		},
 	}
+	
+	cmd.Flags().BoolP("force", "f", false, "Skip confirmation prompt")
+	cmd.Flags().Bool("keep-volumes", false, "Keep volumes when removing container")
+	
+	return cmd
 }
 
 // InfoCmd returns the info command with lazy initialization
@@ -314,6 +321,26 @@ func (f *LazyCommandFactory) ExecCmd() *cobra.Command {
 				SSHClient:    f.SSHClient,
 			}
 			return origFactory.runExec(cmd, args)
+		},
+	}
+}
+
+// InitCmd returns the init command without lazy initialization
+func (f *LazyCommandFactory) InitCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "init",
+		Short: "Initialize l8s configuration",
+		Long: `Initialize l8s configuration by setting up remote server connection details.
+	
+l8s ONLY supports remote container management for security isolation.
+You'll need:
+- A remote server with Podman installed
+- SSH access to the server
+- SSH key authentication configured`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Init doesn't need dependencies, create a minimal factory
+			origFactory := &CommandFactory{}
+			return origFactory.runInit(cmd, args)
 		},
 	}
 }

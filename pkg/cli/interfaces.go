@@ -38,4 +38,5 @@ type SSHClient interface {
 	RemoveSSHConfig(name string) error
 	GenerateAuthorizedKeys(publicKey string) string
 	IsPortAvailable(port int) bool
+	ValidatePublicKey(key string) error
 }
