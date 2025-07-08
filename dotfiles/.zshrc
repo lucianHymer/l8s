@@ -6,17 +6,16 @@ export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
 
 # Plugins
-plugins=(git golang docker kubectl)
+plugins=(git golang)
 
 # Load oh-my-zsh
 source $ZSH/oh-my-zsh.sh
 
 # Custom aliases
-alias ll='ls -la'
-alias la='ls -A'
-alias l='ls -CF'
-alias ..='cd ..'
-alias ...='cd ../..'
+alias ll='ls -lAtr'
+alias v='nvim'
+alias danger='claude --dangerously-skip-permissions'
+
 
 # Git aliases
 alias gs='git status'
