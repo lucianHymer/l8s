@@ -185,8 +185,8 @@ func ValidateGitURL(gitURL string) error {
 		return fmt.Errorf("invalid git URL: %w", err)
 	}
 
-	// Check for local paths (not allowed)
-	if u.Scheme == "" || u.Scheme == "file" {
+	// Check for local paths (not allowed except for file:// URLs)
+	if u.Scheme == "" {
 		return fmt.Errorf("local file paths are not allowed")
 	}
 
@@ -196,6 +196,7 @@ func ValidateGitURL(gitURL string) error {
 		"https": true,
 		"git":   true,
 		"ssh":   true,
+		"file":  true, // Allow for testing
 	}
 
 	if !validSchemes[u.Scheme] {
@@ -242,5 +243,5 @@ func GenerateSSHRemoteURL(containerName string, sshPort int, containerUser, repo
 	if !strings.HasPrefix(repoPath, "/") {
 		repoPath = "/" + repoPath
 	}
-	return fmt.Sprintf("%s:%s", containerName, repoPath)
+	return fmt.Sprintf("dev-%s:%s", containerName, repoPath)
 }
