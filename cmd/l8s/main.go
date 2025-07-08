@@ -8,6 +8,7 @@ import (
 
 	"github.com/l8s/l8s/cmd/commands"
 	"github.com/l8s/l8s/pkg/cli"
+	"github.com/l8s/l8s/pkg/errors"
 	"github.com/l8s/l8s/pkg/logging"
 	"github.com/spf13/cobra"
 )
@@ -34,6 +35,7 @@ accessible via SSH using key-based authentication.`,
 	if len(os.Args) > 1 && os.Args[1] == "init" {
 		// Execute init command without loading config
 		if err := rootCmd.Execute(); err != nil {
+			errors.PrintError(err)
 			os.Exit(1)
 		}
 		return
@@ -62,6 +64,7 @@ accessible via SSH using key-based authentication.`,
 	)
 
 	if err := rootCmd.Execute(); err != nil {
+		errors.PrintError(err)
 		os.Exit(1)
 	}
 }

@@ -62,7 +62,6 @@ func runSSH(cmd *cobra.Command, args []string) error {
 
 	// Build SSH command
 	containerName := cfg.ContainerPrefix + "-" + name
-	fmt.Println("\"The Dude abides... connecting...\"")
 	
 	// Execute SSH
 	sshCmd := exec.Command("ssh", containerName)

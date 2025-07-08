@@ -55,6 +55,7 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(cmd.OutOrStdout(), "- l8s ssh %s\n", name)
 	fmt.Fprintf(cmd.OutOrStdout(), "- ssh %s-%s\n", f.Config.ContainerPrefix, name)
 	fmt.Fprintf(cmd.OutOrStdout(), "- git push %s\n", name)
+	fmt.Fprintf(cmd.OutOrStdout(), "\n🎳 Her life is in your hands, dude.\n")
 
 	return nil
 }
@@ -63,7 +64,6 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 func (f *CommandFactory) runSSH(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	
-	fmt.Fprintln(cmd.OutOrStdout(), "\"The Dude abides... connecting...\"")
 	
 	ctx := context.Background()
 	return f.ContainerMgr.SSHIntoContainer(ctx, name)
