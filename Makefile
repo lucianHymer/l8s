@@ -56,13 +56,22 @@ clean: ## Clean build artifacts
 	@echo "✓ Clean complete"
 
 .PHONY: test
-test: ## Run unit tests
-	@echo "🧪 Running unit tests..."
+test: test-go test-zsh ## Run all tests (Go unit tests and ZSH plugin tests)
+
+.PHONY: test-go
+test-go: ## Run Go unit tests
+	@echo "🧪 Running Go unit tests..."
 	$(GOTEST) -v -race -tags test -coverprofile=coverage.out ./pkg/... ./cmd/...
-	@echo "✓ Unit tests complete"
+	@echo "✓ Go unit tests complete"
+
+.PHONY: test-zsh
+test-zsh: ## Run ZSH plugin tests
+	@echo "🐚 Running ZSH plugin tests..."
+	@cd dotfiles/.oh-my-zsh/custom/plugins/l8s/tests && zsh run_all_tests.sh
+	@echo "✓ ZSH plugin tests complete"
 
 .PHONY: test-coverage
-test-coverage: test ## Run tests with coverage report
+test-coverage: test-go ## Run tests with coverage report
 	@echo "📊 Generating coverage report..."
 	@$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "✓ Coverage report generated: coverage.html"
@@ -78,7 +87,7 @@ test-integration: ## Run integration tests (requires Podman)
 	@echo "✓ Integration tests complete"
 
 .PHONY: test-all
-test-all: test test-integration ## Run all tests
+test-all: test test-integration ## Run all tests (unit, ZSH, and integration)
 
 .PHONY: lint
 lint: ## Run linters
@@ -121,6 +130,30 @@ uninstall: ## Uninstall l8s from system
 	@echo "🗑️  Uninstalling $(BINARY_NAME)..."
 	@sudo rm -f $(INSTALL_DIR)/$(BINARY_NAME)
 	@echo "✓ Uninstallation complete"
+
+.PHONY: zsh-plugin
+zsh-plugin: ## Install l8s ZSH completion plugin on host machine
+	@echo "🐚 Installing l8s ZSH completion plugin..."
+	@if [ ! -d "$$HOME/.oh-my-zsh" ]; then \
+		echo "❌ Oh My Zsh not found. Please install Oh My Zsh first."; \
+		exit 1; \
+	fi
+	@echo "📁 Copying plugin to Oh My Zsh custom plugins..."
+	@mkdir -p $$HOME/.oh-my-zsh/custom/plugins
+	@cp -r dotfiles/.oh-my-zsh/custom/plugins/l8s $$HOME/.oh-my-zsh/custom/plugins/
+	@echo "✓ Plugin copied"
+	@echo "📝 Updating .zshrc..."
+	@if ! grep -q "# l8s plugin auto-load" $$HOME/.zshrc; then \
+		echo "" >> $$HOME/.zshrc; \
+		echo "# l8s plugin auto-load" >> $$HOME/.zshrc; \
+		echo 'if [[ -d "$$ZSH_CUSTOM/plugins/l8s" ]]; then' >> $$HOME/.zshrc; \
+		echo '    plugins+=(l8s)' >> $$HOME/.zshrc; \
+		echo 'fi' >> $$HOME/.zshrc; \
+		echo "✓ Added l8s plugin to .zshrc"; \
+	else \
+		echo "✓ l8s plugin already configured in .zshrc"; \
+	fi
+	@echo "🎉 Installation complete! Restart your shell or run: source ~/.zshrc"
 
 .PHONY: container-build
 container-build: ## Build the l8s container image

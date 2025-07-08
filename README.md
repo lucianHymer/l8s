@@ -99,6 +99,17 @@ make install PREFIX=$HOME/.local
 
 Coming soon!
 
+### ZSH Completion Plugin (Optional)
+
+For autocomplete support with ZSH:
+
+```bash
+# Install the l8s ZSH plugin (requires Oh My Zsh)
+make zsh-plugin
+```
+
+This will install tab completion for all l8s commands and container names.
+
 ## Quick Start
 
 ### 1. Set Up Remote Server

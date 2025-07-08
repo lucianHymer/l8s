@@ -1,0 +1,128 @@
+#compdef l8s
+
+# ZSH completion for l8s - The container management system that really ties the room together
+
+# Get container names from l8s list output
+_l8s_get_containers() {
+    local filter="$1"
+    local containers=()
+    local cmd="l8s list"
+    
+    # Add filter if specified
+    case "$filter" in
+        running) cmd="$cmd --running" ;;
+        stopped) cmd="$cmd --stopped" ;;
+    esac
+    
+    # Parse container names from l8s list output
+    # Skip header line and extract container names (removing dev- prefix)
+    containers=(${(f)"$(eval $cmd 2>/dev/null | tail -n +2 | awk '{print $1}' | sed 's/^dev-//')"})
+    
+    compadd -a containers
+}
+
+# Main completion function
+_l8s() {
+    local curcontext="$curcontext" state line
+    typeset -A opt_args
+    
+    # Define main commands
+    local -a commands
+    commands=(
+        'init:Initialize l8s configuration for remote server'
+        'build:Build the base container image on remote server'
+        'create:Create a new development container'
+        'list:List all l8s containers'
+        'ls:List all l8s containers (alias for list)'
+        'start:Start a stopped container'
+        'stop:Stop a running container'
+        'remove:Remove a container'
+        'info:Get detailed container information'
+        'ssh:SSH into a container'
+        'exec:Execute command in container'
+        'remote:Manage git remotes for containers'
+    )
+    
+    # Handle different completion positions
+    case $CURRENT in
+        2)
+            # Complete commands or --help
+            if [[ "$words[1]" == "l8s" ]]; then
+                if [[ "$PREFIX" == --* ]]; then
+                    compadd -- --help
+                else
+                    compadd ${commands%%:*}
+                fi
+            fi
+            ;;
+            
+        3)
+            # Complete based on the command
+            case "${words[2]}" in
+                start)
+                    # Only show stopped containers
+                    _l8s_get_containers "stopped"
+                    ;;
+                    
+                stop|exec)
+                    # Only show running containers
+                    _l8s_get_containers "running"
+                    ;;
+                    
+                remove|info|ssh)
+                    # Show all containers
+                    _l8s_get_containers
+                    ;;
+                    
+                remote)
+                    # Show subcommands
+                    compadd add remove
+                    ;;
+                    
+                create)
+                    # First arg is container name
+                    _message 'container name'
+                    ;;
+            esac
+            ;;
+            
+        4)
+            # Complete based on command and previous args
+            case "${words[2]}" in
+                remote)
+                    # After remote subcommand, complete containers
+                    if [[ "${words[3]}" == "add" || "${words[3]}" == "remove" ]]; then
+                        _l8s_get_containers
+                    fi
+                    ;;
+                    
+                create)
+                    # Second arg is git URL
+                    _message 'git repository URL'
+                    ;;
+                    
+                exec)
+                    # After container name, suggest common commands
+                    local -a common_commands
+                    common_commands=(bash zsh nvim git python node go make npm cargo)
+                    compadd -d common_commands $common_commands
+                    ;;
+            esac
+            ;;
+            
+        5)
+            # Handle remaining cases
+            case "${words[2]}" in
+                create)
+                    # Third arg is optional branch
+                    _message 'branch name (optional)'
+                    ;;
+            esac
+            ;;
+    esac
+    
+    return 0
+}
+
+# Initialize completion
+_l8s "$@"
