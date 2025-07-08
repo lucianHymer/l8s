@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/user"
 	"strings"
+	"time"
 )
 
 var lebowskiQuotes = []string{
@@ -16,6 +17,11 @@ var lebowskiQuotes = []string{
 	"Obviously you're not a golfer",
 	"Do you see what happens, Larry?",
 	"Calmer than you are",
+}
+
+func init() {
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
 }
 
 // LebowskiError returns a random Big Lebowski quote as an error message

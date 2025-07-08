@@ -44,7 +44,7 @@ accessible via SSH using key-based authentication.`,
 	// Create command factory (requires config)
 	factory, err := cli.NewCommandFactory()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		errors.PrintError(err)
 		fmt.Fprintf(os.Stderr, "\nRun 'l8s init' to configure l8s for your remote server.\n")
 		os.Exit(1)
 	}
