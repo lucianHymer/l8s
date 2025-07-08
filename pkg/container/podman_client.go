@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/containers/common/libnetwork/types"
 	"github.com/containers/podman/v5/pkg/bindings"
 	"github.com/containers/podman/v5/pkg/bindings/containers"
 	"github.com/containers/podman/v5/pkg/bindings/system"
@@ -179,15 +180,14 @@ func (c *RealPodmanClient) CreateContainer(ctx context.Context, config Container
 	s.Hostname = config.Name
 	s.Labels = config.Labels
 
-	// Set up port mapping for SSH
-	// In Podman v5, we need to expose the port and publish it
-	s.Expose = map[uint16]string{
-		22: "tcp",
+	// Set up specific port mapping for SSH
+	s.PortMappings = []types.PortMapping{
+		{
+			HostPort:      uint16(config.SSHPort),
+			ContainerPort: 22,
+			Protocol:      "tcp",
+		},
 	}
-	// Publish all exposed ports (this will map them to available host ports)
-	// For specific port mapping, we'll need to handle this after container creation
-	publishPorts := true
-	s.PublishExposedPorts = &publishPorts
 
 	// Create volumes
 	homeVolume := config.Name + "-home"
@@ -285,11 +285,23 @@ func (c *RealPodmanClient) ListContainers(ctx context.Context) ([]*Container, er
 	// Convert to our Container type
 	var result []*Container
 	for _, c := range containerList {
-		// Parse SSH port from labels
+		// Get SSH port from port mappings if available
 		sshPort := 0
-		if portStr, ok := c.Labels[LabelSSHPort]; ok {
-			if p, err := strconv.Atoi(portStr); err == nil {
-				sshPort = p
+		if c.Ports != nil {
+			for _, port := range c.Ports {
+				if port.ContainerPort == 22 && port.Protocol == "tcp" {
+					sshPort = int(port.HostPort)
+					break
+				}
+			}
+		}
+		
+		// Fallback to label if no port mapping found
+		if sshPort == 0 {
+			if portStr, ok := c.Labels[LabelSSHPort]; ok {
+				if p, err := strconv.Atoi(portStr); err == nil {
+					sshPort = p
+				}
 			}
 		}
 
@@ -321,11 +333,22 @@ func (c *RealPodmanClient) GetContainerInfo(ctx context.Context, name string) (*
 		return nil, fmt.Errorf("container '%s' is not managed by l8s", name)
 	}
 
-	// Parse SSH port from labels
+	// Get SSH port from actual port mappings
 	sshPort := 0
-	if portStr, ok := inspect.Config.Labels[LabelSSHPort]; ok {
-		if p, err := strconv.Atoi(portStr); err == nil {
-			sshPort = p
+	if inspect.NetworkSettings != nil && len(inspect.NetworkSettings.Ports) > 0 {
+		// Look for port 22/tcp mapping
+		if portBindings, ok := inspect.NetworkSettings.Ports["22/tcp"]; ok && len(portBindings) > 0 {
+			if p, err := strconv.Atoi(portBindings[0].HostPort); err == nil {
+				sshPort = p
+			}
+		}
+	}
+	// Fallback to label if no port mapping found
+	if sshPort == 0 {
+		if portStr, ok := inspect.Config.Labels[LabelSSHPort]; ok {
+			if p, err := strconv.Atoi(portStr); err == nil {
+				sshPort = p
+			}
 		}
 	}
 
@@ -547,6 +570,23 @@ func (c *RealPodmanClient) CopyToContainer(ctx context.Context, name string, src
 
 	if err := copyFunc(); err != nil {
 		return fmt.Errorf("failed to copy to container: %w", err)
+	}
+
+	return nil
+}
+
+// SetupWorkspace ensures the workspace directory exists with proper permissions
+func (c *RealPodmanClient) SetupWorkspace(ctx context.Context, name string, containerUser string) error {
+	// Create workspace directory
+	mkdirCmd := []string{"mkdir", "-p", "/workspace"}
+	if err := c.ExecContainer(ctx, name, mkdirCmd); err != nil {
+		return fmt.Errorf("failed to create workspace directory: %w", err)
+	}
+
+	// Set ownership of workspace directory
+	chownCmd := []string{"chown", fmt.Sprintf("%s:%s", containerUser, containerUser), "/workspace"}
+	if err := c.ExecContainer(ctx, name, chownCmd); err != nil {
+		return fmt.Errorf("failed to set workspace ownership: %w", err)
 	}
 
 	return nil

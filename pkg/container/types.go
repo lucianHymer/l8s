@@ -41,6 +41,7 @@ type PodmanClient interface {
 	ExecContainer(ctx context.Context, name string, cmd []string) error
 	ExecContainerWithInput(ctx context.Context, name string, cmd []string, input string) error
 	CopyToContainer(ctx context.Context, name string, src, dst string) error
+	SetupWorkspace(ctx context.Context, name string, containerUser string) error
 }
 
 // Config holds configuration for the container manager

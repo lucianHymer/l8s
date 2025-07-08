@@ -65,6 +65,9 @@ func TestManager_CreateContainer(t *testing.T) {
 				m.On("ExecContainer", mock.Anything, "dev-myproject", 
 					[]string{"chown", "-R", "dev:dev", "/home/dev/.ssh"}).Return(nil)
 				
+				// Mock SetupWorkspace call
+				m.On("SetupWorkspace", mock.Anything, "dev-myproject", "dev").Return(nil)
+				
 				// Mock cloneRepository call
 				m.On("ExecContainer", mock.Anything, "dev-myproject", 
 					[]string{"git", "clone", "-b", "main", "https://github.com/user/repo.git", "/workspace/project"}).Return(nil)
@@ -427,6 +430,9 @@ func TestManager_WorkspaceOwnership(t *testing.T) {
 		[]string{"chmod", "600", "/home/dev/.ssh/authorized_keys"}).Return(nil)
 	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 
 		[]string{"chown", "-R", "dev:dev", "/home/dev/.ssh"}).Return(nil)
+	
+	// Mock SetupWorkspace call
+	mockClient.On("SetupWorkspace", mock.Anything, "dev-myproject", "dev").Return(nil)
 	
 	// Mock git clone
 	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 

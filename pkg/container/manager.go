@@ -132,6 +132,14 @@ func (m *Manager) CreateContainer(ctx context.Context, name, gitURL, branch, ssh
 			logging.WithField("container", containerName))
 	}
 
+	// Setup workspace directory
+	if err := m.client.SetupWorkspace(ctx, containerName, m.config.ContainerUser); err != nil {
+		// Log error but don't fail container creation
+		m.logger.Warn("failed to setup workspace directory",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
+	}
+
 	// Clone git repository
 	if err := m.cloneRepository(ctx, containerName, gitURL, branch); err != nil {
 		cleaner.Cleanup(ctx)

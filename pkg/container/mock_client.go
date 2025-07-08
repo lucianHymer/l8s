@@ -89,6 +89,12 @@ func (m *MockPodmanClient) CopyToContainer(ctx context.Context, name string, src
 	return args.Error(0)
 }
 
+// SetupWorkspace mocks the SetupWorkspace method
+func (m *MockPodmanClient) SetupWorkspace(ctx context.Context, name string, containerUser string) error {
+	args := m.Called(ctx, name, containerUser)
+	return args.Error(0)
+}
+
 // RealPodmanClient is a stub for test builds
 type RealPodmanClient struct {
 	conn context.Context
@@ -164,6 +170,10 @@ func (c *RealPodmanClient) ExecContainerWithInput(ctx context.Context, name stri
 }
 
 func (c *RealPodmanClient) CopyToContainer(ctx context.Context, name string, src, dst string) error {
+	return fmt.Errorf("not implemented in test build")
+}
+
+func (c *RealPodmanClient) SetupWorkspace(ctx context.Context, name string, containerUser string) error {
 	return fmt.Errorf("not implemented in test build")
 }
 
