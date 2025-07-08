@@ -1,0 +1,36 @@
+FROM fedora:latest
+
+# Minimal test image for faster testing
+
+# Install only essential packages
+RUN dnf update -y && \
+    dnf install -y \
+        openssh-server \
+        git \
+        sudo \
+        passwd \
+        which && \
+    dnf clean all
+
+# Create dev user
+ARG CONTAINER_USER=dev
+RUN useradd -m -s /bin/bash -G wheel ${CONTAINER_USER} && \
+    echo "${CONTAINER_USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Configure SSH
+RUN mkdir /var/run/sshd && \
+    ssh-keygen -A && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
+    sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+    echo "AllowUsers ${CONTAINER_USER}" >> /etc/ssh/sshd_config
+
+# Create workspace directory
+RUN mkdir -p /workspace && \
+    chown ${CONTAINER_USER}:${CONTAINER_USER} /workspace
+
+# Expose SSH port
+EXPOSE 22
+
+# Start SSH daemon
+CMD ["/usr/sbin/sshd", "-D"]

@@ -1,0 +1,73 @@
+FROM fedora:latest
+
+# Install system packages
+RUN dnf update -y && \
+    dnf install -y \
+        openssh-server \
+        git \
+        neovim \
+        zsh \
+        tmux \
+        gcc \
+        gcc-c++ \
+        make \
+        python3 \
+        python3-pip \
+        nodejs \
+        npm \
+        ripgrep \
+        fd-find \
+        fzf \
+        bat \
+        sudo \
+        passwd \
+        which \
+        curl \
+        wget \
+        tar \
+        gzip \
+        unzip \
+        jq \
+        htop \
+        ncdu \
+        tree \
+        golang \
+        rust \
+        cargo && \
+    dnf clean all
+
+# Create dev user (configurable via build arg)
+ARG CONTAINER_USER=dev
+RUN useradd -m -s /bin/zsh -G wheel ${CONTAINER_USER} && \
+    echo "${CONTAINER_USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Switch to user for installations
+USER ${CONTAINER_USER}
+WORKDIR /home/${CONTAINER_USER}
+
+# Install oh-my-zsh
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+# Install global npm packages as user
+RUN npm install -g @anthropic-ai/claude-code
+
+# Switch back to root for SSH setup
+USER root
+
+# Configure SSH
+RUN mkdir /var/run/sshd && \
+    ssh-keygen -A && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
+    sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+    echo "AllowUsers ${CONTAINER_USER}" >> /etc/ssh/sshd_config
+
+# Create workspace directory
+RUN mkdir -p /workspace && \
+    chown ${CONTAINER_USER}:${CONTAINER_USER} /workspace
+
+# Expose SSH port
+EXPOSE 22
+
+# Start SSH daemon
+CMD ["/usr/sbin/sshd", "-D"]

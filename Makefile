@@ -58,7 +58,7 @@ clean: ## Clean build artifacts
 .PHONY: test
 test: ## Run unit tests
 	@echo "🧪 Running unit tests..."
-	$(GOTEST) -v -race -coverprofile=coverage.out ./pkg/... ./cmd/...
+	$(GOTEST) -v -race -tags test -coverprofile=coverage.out ./pkg/... ./cmd/...
 	@echo "✓ Unit tests complete"
 
 .PHONY: test-coverage
