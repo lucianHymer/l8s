@@ -25,6 +25,8 @@ that creates isolated, SSH-accessible development environments.
 
 Each container is a fully-featured Linux environment with development tools,
 accessible via SSH using key-based authentication.`,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	// Add init command (doesn't require config)

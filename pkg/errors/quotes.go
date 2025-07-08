@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"os/user"
-	"strings"
 )
 
 var lebowskiQuotes = []string{
 	"Am I the only one around here who gives a shit about the rules?!",
-	"You're out of your element, %s!",
+	"You're out of your element, Donny!",
 	"This aggression will not stand, man",
 	"You're entering a world of pain",
 	"Obviously you're not a golfer",
@@ -22,18 +20,7 @@ var lebowskiQuotes = []string{
 
 // LebowskiError returns a random Big Lebowski quote as an error message
 func LebowskiError() string {
-	quote := lebowskiQuotes[rand.Intn(len(lebowskiQuotes))]
-	
-	// If the quote has a %s placeholder, try to insert the username
-	if strings.Contains(quote, "%s") {
-		username := "Donny" // default fallback
-		if u, err := user.Current(); err == nil {
-			username = u.Username
-		}
-		quote = fmt.Sprintf(quote, username)
-	}
-	
-	return quote
+	return lebowskiQuotes[rand.Intn(len(lebowskiQuotes))]
 }
 
 // WrapError wraps an error with a random Lebowski quote

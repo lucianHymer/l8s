@@ -418,12 +418,9 @@ make clean
 
 MIT License - see LICENSE file for details
 
-## Acknowledgments
-
-- The Podman team for the excellent container runtime
-- The Go team for the amazing language and tools
-- The Dude, for abiding
-
----
-
-*"Yeah, well, that's just, like, your container, man."* 🎳
+# TODOs
+- [ ] Fix exit messages
+- [ ] /workspace/project (but not /workspace) and /home/<user> are incorrectly owned by root
+- [ ] Remove doesn't actually remove the volume even though it says it does, but maybe that should be a separate option anyways? Like a --parameter, or ask a question if not?
+- [ ] Add some color to the output
+- [ ] Make zsh line distinctive in container and in dtach
