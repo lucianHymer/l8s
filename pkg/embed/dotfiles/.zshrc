@@ -15,6 +15,9 @@ source $ZSH/oh-my-zsh.sh
 alias ll='ls -lAtr'
 alias v='nvim'
 alias danger='claude --dangerously-skip-permissions'
+alias team1='dtach -A /tmp/dt_team1 zsh'
+alias team2='dtach -A /tmp/dt_team2 zsh'
+alias team3='dtach -A /tmp/dt_team3 zsh'
 
 
 # Git aliases
