@@ -378,7 +378,9 @@ func (m *Manager) applyHostGitConfig(ctx context.Context, containerName string) 
 
 // cloneRepository clones the git repository in the container
 func (m *Manager) cloneRepository(ctx context.Context, containerName, gitURL, branch string) error {
-	cloneCmd := []string{"git", "clone", "-b", branch, gitURL, "/workspace/project"}
+	// Run git clone as the container user using su
+	cloneCmd := []string{"su", "-", m.config.ContainerUser, "-c", 
+		fmt.Sprintf("git clone -b %s %s /workspace/project", branch, gitURL)}
 	return m.client.ExecContainer(ctx, containerName, cloneCmd)
 }
 

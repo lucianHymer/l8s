@@ -132,17 +132,15 @@ func CopyDotfilesToContainer(ctx context.Context, client PodmanClient, container
 		// Container destination path
 		containerPath := filepath.Join("/home", containerUser, relPath)
 
-		// If it's a directory, create it in the container
+		// If it's a directory, create it in the container with proper ownership
 		if info.IsDir() {
-			mkdirCmd := []string{"mkdir", "-p", containerPath}
+			// Create directory with ownership and permissions in one command
+			mkdirCmd := []string{"sh", "-c", fmt.Sprintf(
+				"mkdir -p '%s' && chown %s:%s '%s' && chmod %o '%s'",
+				containerPath, containerUser, containerUser, containerPath, 
+				info.Mode().Perm(), containerPath)}
 			if err := client.ExecContainer(ctx, containerName, mkdirCmd); err != nil {
 				return fmt.Errorf("failed to create directory %s: %w", containerPath, err)
-			}
-			
-			// Set permissions
-			chmodCmd := []string{"chmod", fmt.Sprintf("%o", info.Mode().Perm()), containerPath}
-			if err := client.ExecContainer(ctx, containerName, chmodCmd); err != nil {
-				return fmt.Errorf("failed to set permissions on %s: %w", containerPath, err)
 			}
 			
 			return nil
@@ -153,16 +151,13 @@ func CopyDotfilesToContainer(ctx context.Context, client PodmanClient, container
 			return fmt.Errorf("failed to copy %s to container: %w", relPath, err)
 		}
 
-		// Set ownership
-		chownCmd := []string{"chown", fmt.Sprintf("%s:%s", containerUser, containerUser), containerPath}
-		if err := client.ExecContainer(ctx, containerName, chownCmd); err != nil {
-			return fmt.Errorf("failed to set ownership on %s: %w", containerPath, err)
-		}
-
-		// Set permissions
-		chmodCmd := []string{"chmod", fmt.Sprintf("%o", info.Mode().Perm()), containerPath}
-		if err := client.ExecContainer(ctx, containerName, chmodCmd); err != nil {
-			return fmt.Errorf("failed to set permissions on %s: %w", containerPath, err)
+		// Set ownership and permissions in one command
+		fixPermCmd := []string{"sh", "-c", fmt.Sprintf(
+			"chown %s:%s '%s' && chmod %o '%s'",
+			containerUser, containerUser, containerPath, 
+			info.Mode().Perm(), containerPath)}
+		if err := client.ExecContainer(ctx, containerName, fixPermCmd); err != nil {
+			return fmt.Errorf("failed to set ownership/permissions on %s: %w", containerPath, err)
 		}
 
 		return nil
