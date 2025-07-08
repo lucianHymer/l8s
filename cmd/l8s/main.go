@@ -31,37 +31,44 @@ accessible via SSH using key-based authentication.`,
 	// Add init command (doesn't require config)
 	rootCmd.AddCommand(commands.InitCmd())
 
-	// Check if this is the init command
-	if len(os.Args) > 1 && os.Args[1] == "init" {
-		// Execute init command without loading config
-		if err := rootCmd.Execute(); err != nil {
+	// Check if we need to initialize the factory
+	// (skip for help, version, completion, and init commands)
+	needsFactory := true
+	if len(os.Args) > 1 {
+		firstArg := os.Args[1]
+		if firstArg == "init" || firstArg == "--help" || firstArg == "-h" || 
+		   firstArg == "help" || firstArg == "--version" || firstArg == "-v" ||
+		   firstArg == "version" || firstArg == "completion" {
+			needsFactory = false
+		}
+	} else {
+		// No arguments means help will be shown
+		needsFactory = false
+	}
+
+	if needsFactory {
+		// Create command factory (requires config)
+		factory, err := cli.NewCommandFactory()
+		if err != nil {
 			errors.PrintError(err)
+			fmt.Fprintf(os.Stderr, "\nRun 'l8s init' to configure l8s for your remote server.\n")
 			os.Exit(1)
 		}
-		return
-	}
 
-	// Create command factory (requires config)
-	factory, err := cli.NewCommandFactory()
-	if err != nil {
-		errors.PrintError(err)
-		fmt.Fprintf(os.Stderr, "\nRun 'l8s init' to configure l8s for your remote server.\n")
-		os.Exit(1)
+		// Add commands from factory
+		rootCmd.AddCommand(
+			factory.CreateCmd(),
+			factory.SSHCmd(),
+			factory.ListCmd(),
+			factory.StartCmd(),
+			factory.StopCmd(),
+			factory.RemoveCmd(),
+			factory.InfoCmd(),
+			factory.BuildCmd(),
+			factory.RemoteCmd(),
+			factory.ExecCmd(),
+		)
 	}
-
-	// Add commands from factory
-	rootCmd.AddCommand(
-		factory.CreateCmd(),
-		factory.SSHCmd(),
-		factory.ListCmd(),
-		factory.StartCmd(),
-		factory.StopCmd(),
-		factory.RemoveCmd(),
-		factory.InfoCmd(),
-		factory.BuildCmd(),
-		factory.RemoteCmd(),
-		factory.ExecCmd(),
-	)
 
 	if err := rootCmd.Execute(); err != nil {
 		errors.PrintError(err)
