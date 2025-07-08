@@ -28,7 +28,9 @@ import (
 
 // RealPodmanClient implements PodmanClient using actual Podman bindings
 type RealPodmanClient struct {
-	conn context.Context
+	conn       context.Context
+	remoteHost string
+	remoteUser string
 }
 
 // NewPodmanClient creates a new Podman client
@@ -160,7 +162,11 @@ For detailed setup instructions, see: docs/REMOTE_SERVER_SETUP.md`,
 			cfg.RemoteUser, cfg.RemoteHost)
 	}
 	
-	return &RealPodmanClient{conn: conn}, nil
+	return &RealPodmanClient{
+		conn:       conn,
+		remoteHost: cfg.RemoteHost,
+		remoteUser: cfg.RemoteUser,
+	}, nil
 }
 
 // ContainerExists checks if a container exists
@@ -261,7 +267,27 @@ func (c *RealPodmanClient) RemoveContainer(ctx context.Context, name string, rem
 		Force:   &force,
 		Volumes: &removeVolumes,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	
+	// If removeVolumes is true, explicitly remove named volumes
+	// This is a workaround for cases where Podman doesn't remove named volumes
+	if removeVolumes {
+		// Try to remove the named volumes explicitly
+		// We don't fail if this errors as the volumes might have been removed already
+		homeVolume := name + "-home"
+		workspaceVolume := name + "-workspace"
+		
+		// Use exec to run podman volume rm commands
+		// We ignore errors as volumes might not exist or might have been removed
+		exec.Command("ssh", fmt.Sprintf("%s@%s", c.remoteUser, c.remoteHost), 
+			"podman", "volume", "rm", "-f", homeVolume).Run()
+		exec.Command("ssh", fmt.Sprintf("%s@%s", c.remoteUser, c.remoteHost), 
+			"podman", "volume", "rm", "-f", workspaceVolume).Run()
+	}
+	
+	return nil
 }
 
 // ListContainers lists all l8s-managed containers
