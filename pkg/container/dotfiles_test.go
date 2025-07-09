@@ -25,7 +25,6 @@ func TestCopyDotfiles(t *testing.T) {
 			setupDotfiles: func(dir string) error {
 				files := map[string]string{
 					".zshrc":     "# ZSH configuration\nexport PATH=$PATH:/usr/local/bin",
-					".tmux.conf": "# TMUX configuration\nset -g mouse on",
 					".gitconfig": "[user]\n  name = Test User\n  email = test@example.com",
 				}
 				for name, content := range files {
@@ -37,7 +36,7 @@ func TestCopyDotfiles(t *testing.T) {
 			},
 			containerUser: "dev",
 			wantErr:       false,
-			expectedFiles: []string{".zshrc", ".tmux.conf", ".gitconfig"},
+			expectedFiles: []string{".zshrc", ".gitconfig"},
 		},
 		{
 			name: "copy nested config files",

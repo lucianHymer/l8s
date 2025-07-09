@@ -1,0 +1,25 @@
+.PHONY: help update-nvim ci
+
+# Default target
+help:
+	@echo "Available targets:"
+	@echo "  make update-nvim       - Update Neovim plugins in pkg/embed/dotfiles/.config/nvim"
+	@echo "  make ci                - Run CI checks"
+
+# Update Neovim plugins in the repository
+update-nvim:
+	@echo "Updating Neovim plugins in pkg/embed/dotfiles/.config/nvim..."
+	@cd pkg/embed/dotfiles/.config/nvim && \
+		nvim --headless "+Lazy! sync" +qa 2>&1
+	@if [ $$? -eq 0 ]; then \
+		echo "✓ Plugin update completed successfully"; \
+		echo "✓ lazy-lock.json has been updated"; \
+		echo "Don't forget to commit the changes if any plugins were updated"; \
+	else \
+		echo "✗ Plugin update failed"; \
+		exit 1; \
+	fi
+
+# CI target
+ci: update-nvim
+	@echo "✓ CI checks completed"

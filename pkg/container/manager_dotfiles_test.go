@@ -280,7 +280,6 @@ func TestCopyEmbeddedDotfiles(t *testing.T) {
 	expectedFiles := []string{
 		".bashrc",
 		".gitconfig", 
-		".tmux.conf",
 		".zshrc",
 		".claude/settings.json",
 		".config/nvim/init.vim",

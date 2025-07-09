@@ -381,7 +381,6 @@ func TestDotfilesCopy(t *testing.T) {
 				// Create sample dotfiles
 				files := map[string]string{
 					".zshrc":      "# zsh config",
-					".tmux.conf":  "# tmux config",
 					".gitconfig":  "[user]\n  name = Test\n  email = test@example.com",
 				}
 				

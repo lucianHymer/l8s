@@ -225,9 +225,27 @@ setup: check-deps deps check-podman ## Initial project setup
 	@echo "🔧 Setting up development environment..."
 	@echo "✓ Setup complete"
 
+.PHONY: update-nvim
+update-nvim: ## Update Neovim plugins in pkg/embed/dotfiles
+	@echo "📦 Updating Neovim plugins in pkg/embed/dotfiles/.config/nvim..."
+	@cd pkg/embed/dotfiles/.config/nvim && \
+		HOME=$(PWD)/pkg/embed/dotfiles nvim --headless "+autocmd User LazySync quitall" "+Lazy sync" 2>&1
+	@if [ $$? -eq 0 ]; then \
+		echo "✓ Plugin update completed successfully"; \
+		if git diff --quiet lazy-lock.json 2>/dev/null; then \
+			echo "ℹ️  No plugin updates available"; \
+		else \
+			echo "📝 lazy-lock.json has been updated"; \
+			echo "⚠️  Remember to commit the changes if any plugins were updated"; \
+		fi \
+	else \
+		echo "❌ Plugin update failed"; \
+		exit 1; \
+	fi
+
 # CI/CD targets
 .PHONY: ci
-ci: clean deps lint test ## Run CI pipeline
+ci: clean deps lint test update-nvim ## Run CI pipeline
 
 .PHONY: benchmark
 benchmark: ## Run benchmarks

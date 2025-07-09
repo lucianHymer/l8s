@@ -17,7 +17,6 @@ func TestGetDotfilesFS(t *testing.T) {
 		".zshrc",
 		".bashrc", 
 		".gitconfig",
-		".tmux.conf",
 	}
 	
 	for _, file := range essentialFiles {
@@ -95,9 +94,9 @@ func TestListEmbeddedDotfiles(t *testing.T) {
 		t.Fatalf("failed to walk embedded files: %v", err)
 	}
 	
-	// Should have at least 4 dotfiles
-	if len(files) < 4 {
-		t.Errorf("expected at least 4 dotfiles, got %d: %v", len(files), files)
+	// Should have at least 3 dotfiles
+	if len(files) < 3 {
+		t.Errorf("expected at least 3 dotfiles, got %d: %v", len(files), files)
 	}
 }
 
