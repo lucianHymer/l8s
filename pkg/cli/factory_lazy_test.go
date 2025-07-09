@@ -165,7 +165,7 @@ func (m *MockGitClient) ValidateGitURL(gitURL string) error {
 type MockSSHClient struct{}
 
 func (m *MockSSHClient) ReadPublicKey(keyPath string) (string, error) {
-	return "", nil
+	return "mock-ssh-key", nil
 }
 
 func (m *MockSSHClient) FindSSHPublicKey() (string, error) {
@@ -186,4 +186,8 @@ func (m *MockSSHClient) GenerateAuthorizedKeys(publicKey string) string {
 
 func (m *MockSSHClient) IsPortAvailable(port int) bool {
 	return true
+}
+
+func (m *MockSSHClient) ValidatePublicKey(key string) error {
+	return nil
 }

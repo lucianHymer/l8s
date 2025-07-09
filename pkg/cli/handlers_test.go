@@ -7,7 +7,6 @@ import (
 
 	"l8s/pkg/config"
 	"l8s/pkg/container"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -17,8 +16,8 @@ type MockContainerManagerWithGit struct {
 	mock.Mock
 }
 
-func (m *MockContainerManagerWithGit) CreateContainer(ctx context.Context, name, gitURL, branch, sshKey string) (*container.Container, error) {
-	args := m.Called(ctx, name, gitURL, branch, sshKey)
+func (m *MockContainerManagerWithGit) CreateContainer(ctx context.Context, name, sshKey string) (*container.Container, error) {
+	args := m.Called(ctx, name, sshKey)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -151,7 +150,7 @@ func TestCreateCommandNewFlow(t *testing.T) {
 				gc.On("GetCurrentBranch", ".").Return("main", nil)
 				
 				// Create container with empty git URL
-				cm.On("CreateContainer", mock.Anything, "mycontainer", "test-key").
+				cm.On("CreateContainer", mock.Anything, "mycontainer", "mock-ssh-key").
 					Return(&container.Container{
 						Name:    "mycontainer",
 						SSHPort: 2222,
@@ -177,7 +176,7 @@ func TestCreateCommandNewFlow(t *testing.T) {
 				// Don't need to get current branch when branch is specified
 				
 				// Create container
-				cm.On("CreateContainer", mock.Anything, "mycontainer", "test-key").
+				cm.On("CreateContainer", mock.Anything, "mycontainer", "mock-ssh-key").
 					Return(&container.Container{
 						Name:    "mycontainer",
 						SSHPort: 2222,
@@ -211,7 +210,7 @@ func TestCreateCommandNewFlow(t *testing.T) {
 				gc.On("IsGitRepository", ".").Return(true)
 				gc.On("GetCurrentBranch", ".").Return("main", nil)
 				
-				cm.On("CreateContainer", mock.Anything, "mycontainer", "test-key").
+				cm.On("CreateContainer", mock.Anything, "mycontainer", "mock-ssh-key").
 					Return(&container.Container{
 						Name:    "mycontainer",
 						SSHPort: 2222,
@@ -220,6 +219,9 @@ func TestCreateCommandNewFlow(t *testing.T) {
 				// Fail to add git remote
 				gc.On("AddRemote", ".", "mycontainer", "dev-mycontainer:/workspace/project").
 					Return(errors.New("remote already exists"))
+				
+				// Expect cleanup
+				cm.On("RemoveContainer", mock.Anything, "mycontainer", true).Return(nil)
 			},
 			wantErr:     true,
 			errContains: "remote already exists",
@@ -233,7 +235,7 @@ func TestCreateCommandNewFlow(t *testing.T) {
 				gc.On("IsGitRepository", ".").Return(true)
 				gc.On("GetCurrentBranch", ".").Return("main", nil)
 				
-				cm.On("CreateContainer", mock.Anything, "mycontainer", "test-key").
+				cm.On("CreateContainer", mock.Anything, "mycontainer", "mock-ssh-key").
 					Return(&container.Container{
 						Name:    "mycontainer",
 						SSHPort: 2222,
@@ -244,6 +246,9 @@ func TestCreateCommandNewFlow(t *testing.T) {
 				// Push fails
 				gc.On("PushBranch", ".", "main", "mycontainer", false).
 					Return(errors.New("failed to push"))
+				
+				// Expect remote cleanup on push failure
+				gc.On("RemoveRemote", ".", "mycontainer").Return(nil)
 			},
 			wantErr:     true,
 			errContains: "failed to push",
@@ -257,11 +262,10 @@ func TestCreateCommandNewFlow(t *testing.T) {
 			gitClient := new(MockGitClientEnhanced)
 			
 			factory := &LazyCommandFactory{
-				Config:       &config.Config{SSHPublicKey: "test-key"},
+				Config:       &config.Config{SSHPublicKey: "test-key", ContainerPrefix: "dev"},
 				ContainerMgr: containerMgr,
 				GitClient:    gitClient,
 				SSHClient:    &MockSSHClient{},
-				initialized:  true, // Mark as already initialized
 			}
 			
 			// Set up test-specific mocks
@@ -326,7 +330,6 @@ func TestCreateCommandValidation(t *testing.T) {
 				ContainerMgr: &MockContainerManager{},
 				GitClient:    &MockGitClientEnhanced{},
 				SSHClient:    &MockSSHClient{},
-				initialized:  true,
 			}
 			
 			cmd := factory.CreateCmd()

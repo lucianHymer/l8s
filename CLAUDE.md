@@ -1,0 +1,1 @@
+- Always run `make ci` when done with changes

@@ -13,8 +13,6 @@ func TestManager_CreateContainer(t *testing.T) {
 	tests := []struct {
 		name        string
 		containerName string
-		gitURL      string
-		branch      string
 		sshKey      string
 		setupMocks  func(*MockPodmanClient)
 		wantErr     bool
@@ -23,8 +21,6 @@ func TestManager_CreateContainer(t *testing.T) {
 		{
 			name:          "successful container creation",
 			containerName: "myproject",
-			gitURL:        "https://github.com/user/repo.git",
-			branch:        "main",
 			sshKey:        "ssh-ed25519 AAAAC3... user@example.com",
 			setupMocks: func(m *MockPodmanClient) {
 				m.On("ContainerExists", mock.Anything, "dev-myproject").Return(false, nil)
@@ -36,15 +32,11 @@ func TestManager_CreateContainer(t *testing.T) {
 						config.BaseImage == "localhost/l8s-fedora:latest" &&
 						// Verify labels for metadata tracking
 						config.Labels["l8s.managed"] == "true" &&
-						config.Labels["l8s.git.url"] == "https://github.com/user/repo.git" &&
-						config.Labels["l8s.git.branch"] == "main" &&
 						config.Labels["l8s.ssh.port"] == "2200"
 				})).Return(&Container{
 					Name:     "dev-myproject",
 					Status:   "created",
 					SSHPort:  2200,
-					GitURL:   "https://github.com/user/repo.git",
-					GitBranch:   "main",
 					Labels: map[string]string{
 						"l8s.managed":   "true",
 						"l8s.git.url":   "https://github.com/user/repo.git",
@@ -78,17 +70,13 @@ func TestManager_CreateContainer(t *testing.T) {
 					mock.AnythingOfType("[]string"), 
 					mock.AnythingOfType("string")).Return(nil).Maybe()
 				
-				// Mock cloneRepository call
-				m.On("ExecContainer", mock.Anything, "dev-myproject", 
-					[]string{"git", "clone", "-b", "main", "https://github.com/user/repo.git", "/workspace/project"}).Return(nil)
+				// No git clone anymore - containers start with empty repos
 			},
 			wantErr: false,
 		},
 		{
 			name:          "container already exists",
 			containerName: "existing",
-			gitURL:        "https://github.com/user/repo.git",
-			branch:        "main",
 			sshKey:        "ssh-ed25519 AAAAC3... user@example.com",
 			setupMocks: func(m *MockPodmanClient) {
 				m.On("ContainerExists", mock.Anything, "dev-existing").Return(true, nil)
@@ -99,30 +87,14 @@ func TestManager_CreateContainer(t *testing.T) {
 		{
 			name:          "invalid container name",
 			containerName: "invalid name!",
-			gitURL:        "https://github.com/user/repo.git",
-			branch:        "main",
 			sshKey:        "ssh-ed25519 AAAAC3... user@example.com",
 			setupMocks:    func(m *MockPodmanClient) {},
 			wantErr:       true,
 			errContains:   "container name must consist of lowercase letters",
 		},
 		{
-			name:          "empty git URL",
-			containerName: "myproject",
-			gitURL:        "",
-			branch:        "main",
-			sshKey:        "ssh-ed25519 AAAAC3... user@example.com",
-			setupMocks:    func(m *MockPodmanClient) {
-				m.On("ContainerExists", mock.Anything, "dev-myproject").Return(false, nil)
-			},
-			wantErr:       true,
-			errContains:   "git URL cannot be empty",
-		},
-		{
 			name:          "no available ports",
 			containerName: "myproject",
-			gitURL:        "https://github.com/user/repo.git",
-			branch:        "main",
 			sshKey:        "ssh-ed25519 AAAAC3... user@example.com",
 			setupMocks: func(m *MockPodmanClient) {
 				m.On("ContainerExists", mock.Anything, "dev-myproject").Return(false, nil)
@@ -145,7 +117,7 @@ func TestManager_CreateContainer(t *testing.T) {
 				ContainerUser:   "dev",
 			})
 
-			container, err := manager.CreateContainer(context.Background(), tt.containerName, tt.gitURL, tt.branch, tt.sshKey)
+			container, err := manager.CreateContainer(context.Background(), tt.containerName, tt.sshKey)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -173,8 +145,6 @@ func TestManager_ListContainers(t *testing.T) {
 			Name:     "dev-project1",
 			Status:   "running",
 			SSHPort:  2200,
-			GitURL:   "https://github.com/user/project1.git",
-			GitBranch:   "main",
 			Labels: map[string]string{
 				"l8s.managed":   "true",
 				"l8s.git.url":   "https://github.com/user/project1.git",
@@ -186,8 +156,6 @@ func TestManager_ListContainers(t *testing.T) {
 			Name:     "dev-project2",
 			Status:   "stopped",
 			SSHPort:  2201,
-			GitURL:   "https://github.com/user/project2.git",
-			GitBranch:   "develop",
 			Labels: map[string]string{
 				"l8s.managed":   "true",
 				"l8s.git.url":   "https://github.com/user/project2.git",
@@ -285,8 +253,6 @@ func TestManager_GetContainerInfo(t *testing.T) {
 		Name:     "dev-myproject",
 		Status:   "running",
 		SSHPort:  2200,
-		GitURL:   "https://github.com/user/repo.git",
-		GitBranch:   "main",
 		Labels: map[string]string{
 			"l8s.managed":   "true",
 			"l8s.git.url":   "https://github.com/user/repo.git",
@@ -454,9 +420,7 @@ func TestManager_WorkspaceOwnership(t *testing.T) {
 		mock.AnythingOfType("[]string"), 
 		mock.AnythingOfType("string")).Return(nil).Maybe()
 	
-	// Mock git clone
-	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 
-		[]string{"git", "clone", "-b", "main", "https://github.com/user/repo.git", "/workspace/project"}).Return(nil)
+	// No git clone anymore - containers start with empty repos
 	
 	manager := NewManager(mockClient, Config{
 		ContainerPrefix: "dev",
@@ -465,7 +429,7 @@ func TestManager_WorkspaceOwnership(t *testing.T) {
 		ContainerUser:   "dev",
 	})
 	
-	_, err := manager.CreateContainer(context.Background(), "myproject", "https://github.com/user/repo.git", "main", "ssh-key")
+	_, err := manager.CreateContainer(context.Background(), "myproject", "ssh-key")
 	require.NoError(t, err)
 	
 	mockClient.AssertExpectations(t)

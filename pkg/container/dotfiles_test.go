@@ -265,13 +265,9 @@ func TestCopyDotfilesToContainer(t *testing.T) {
 				m.On("CopyToContainer", mock.Anything, "dev-myproject", 
 					mock.AnythingOfType("string"), "/home/dev/.zshrc").Return(nil)
 				
-				// Mock container exec for chown on the file
+				// Mock container exec for setting ownership and permissions
 				m.On("ExecContainer", mock.Anything, "dev-myproject", 
-					[]string{"chown", "dev:dev", "/home/dev/.zshrc"}).Return(nil)
-				
-				// Mock container exec for chmod on the file
-				m.On("ExecContainer", mock.Anything, "dev-myproject", 
-					[]string{"chmod", "644", "/home/dev/.zshrc"}).Return(nil)
+					[]string{"sh", "-c", "chown dev:dev '/home/dev/.zshrc' && chmod 644 '/home/dev/.zshrc'"}).Return(nil)
 			},
 			wantErr: false,
 		},
