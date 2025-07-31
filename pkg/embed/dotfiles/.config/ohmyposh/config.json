@@ -9,7 +9,7 @@
           "type": "text",
           "style": "plain",
           "foreground": "#ff6b6b",
-          "template": "{{ .Env.HOSTNAME | replace \"dev-\" \"\" }}"
+          "template": "{{ trimPrefix \"dev-\" .Env.HOSTNAME }}"
         },
         {
           "type": "text",
