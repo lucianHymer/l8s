@@ -50,7 +50,8 @@ WORKDIR /home/${CONTAINER_USER}
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
 # Install oh-my-posh
-RUN curl -s https://ohmyposh.dev/install.sh | bash -s -- -d /usr/local/bin
+RUN mkdir -p /home/${CONTAINER_USER}/.local/bin && \
+    curl -s https://ohmyposh.dev/install.sh | bash -s -- -d /home/${CONTAINER_USER}/.local/bin
 
 # Switch back to root for global npm installs and SSH setup
 USER root
