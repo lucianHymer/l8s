@@ -1,4 +1,5 @@
 {
   "model": "opus",
-  "includeCoAuthoredBy": false
+  "includeCoAuthoredBy": false,
+  "forceLoginMethod": "claudeai"
 }
