@@ -157,7 +157,9 @@ _team() {
         sessions=()
         for sock in /tmp/dtach-*.sock(N); do
             if [[ -S "$sock" ]]; then
-                local encoded=${${sock:t}%.sock#dtach-}
+                local basename=${sock:t}
+                local encoded=${basename#dtach-}
+                encoded=${encoded%.sock}
                 local name=$(echo "$encoded" | base64 -d 2>/dev/null)
                 [[ -n "$name" ]] && sessions+=("$name")
             fi
