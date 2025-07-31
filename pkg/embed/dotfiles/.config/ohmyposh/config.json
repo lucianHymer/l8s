@@ -15,7 +15,7 @@
           "type": "text",
           "style": "plain",
           "foreground": "#4ecdc4",
-          "template": "{{ if .Env.DTACH_SESSION }}[{{ .Env.DTACH_SESSION }}]{{ end }}"
+          "template": "{{ if .Env.DTACH_SESSION }}⚒{{ .Env.DTACH_SESSION }}{{ end }}"
         },
         {
           "type": "text",
