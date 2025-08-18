@@ -1,6 +1,60 @@
 FROM fedora:latest
 
-# Install system packages
+# ============================================================================
+# SECTION 1: MINIMAL PACKAGE INSTALLATION
+# These packages are needed for initial setup operations.
+# This layer might use cached versions, which is fine since we'll update
+# them later in the full installation section.
+# ============================================================================
+
+RUN dnf install -y \
+        openssh-server \
+        sudo \
+        zsh \
+        curl \
+        git \
+        tar \
+        passwd && \
+    dnf clean all
+
+# ============================================================================
+# SECTION 2: STATIC CONFIGURATION
+# These operations don't download external resources and rarely change,
+# so they can be cached safely. This includes user creation, SSH setup,
+# and directory structure.
+# ============================================================================
+
+# Create dev user with sudo privileges
+ARG CONTAINER_USER=dev
+RUN useradd -m -s /bin/zsh -G wheel ${CONTAINER_USER} && \
+    echo "${CONTAINER_USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Configure SSH for secure access
+RUN mkdir -p /var/run/sshd && \
+    ssh-keygen -A && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
+    sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+    echo "AllowUsers ${CONTAINER_USER}" >> /etc/ssh/sshd_config
+
+# Create workspace directory structure
+RUN mkdir -p /workspace && \
+    chown ${CONTAINER_USER}:${CONTAINER_USER} /workspace
+
+# ============================================================================
+# SECTION 3: CACHE BUSTING POINT
+# Everything below this line will be rebuilt when CACHEBUST changes.
+# This ensures we always get the latest versions of packages and tools.
+# ============================================================================
+
+ARG CACHEBUST=1
+
+# ============================================================================
+# SECTION 4: FULL PACKAGE INSTALLATION
+# Install all system packages, including updates to the minimal set above.
+# This ensures we have the latest versions of everything.
+# ============================================================================
+
 RUN dnf update -y && \
     dnf install -y \
         openssh-server \
@@ -37,39 +91,40 @@ RUN dnf update -y && \
         cargo && \
     dnf clean all
 
-# Create dev user (configurable via build arg)
-ARG CONTAINER_USER=dev
-RUN useradd -m -s /bin/zsh -G wheel ${CONTAINER_USER} && \
-    echo "${CONTAINER_USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+# ============================================================================
+# SECTION 5: USER TOOL INSTALLATIONS
+# Install user-specific tools that fetch from external sources.
+# These need to run as the dev user for proper permissions.
+# ============================================================================
 
-# Switch to user for installations
+# Switch to user for personal tool installations
 USER ${CONTAINER_USER}
 WORKDIR /home/${CONTAINER_USER}
 
-# Install oh-my-zsh
-RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+# Install oh-my-zsh (latest from GitHub)
+# Remove any existing .zshrc to avoid interactive prompts
+RUN rm -f /home/${CONTAINER_USER}/.zshrc && \
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
-# Install oh-my-posh
+# Install oh-my-posh (latest release)
 RUN mkdir -p /home/${CONTAINER_USER}/.local/bin && \
     curl -s https://ohmyposh.dev/install.sh | bash -s -- -d /home/${CONTAINER_USER}/.local/bin
 
-# Switch back to root for global npm installs and SSH setup
+# ============================================================================
+# SECTION 6: GLOBAL NPM PACKAGES
+# Install Node.js packages globally. These need root privileges.
+# ============================================================================
+
+# Switch back to root for global npm installations
 USER root
 
-# Install global npm packages
-RUN npm install -g @anthropic-ai/claude-code
+# Install global npm packages with cache cleaning for smaller image
+RUN npm cache clean --force && \
+    npm install -g @anthropic-ai/claude-code@latest
 
-# Configure SSH
-RUN mkdir -p /var/run/sshd && \
-    ssh-keygen -A && \
-    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
-    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
-    sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
-    echo "AllowUsers ${CONTAINER_USER}" >> /etc/ssh/sshd_config
-
-# Create workspace directory
-RUN mkdir -p /workspace && \
-    chown ${CONTAINER_USER}:${CONTAINER_USER} /workspace
+# ============================================================================
+# SECTION 7: CONTAINER RUNTIME CONFIGURATION
+# ============================================================================
 
 # Expose SSH port
 EXPOSE 22

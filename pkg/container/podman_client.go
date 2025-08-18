@@ -640,9 +640,9 @@ func BuildImage(ctx context.Context, containerfilePath, imageName string) error 
 		return fmt.Errorf("failed to copy Containerfile to remote: %w", err)
 	}
 	
-	// Build the image on the remote server using sudo podman with container user
-	buildCmd := fmt.Sprintf("ssh %s@%s 'sudo podman build --build-arg CONTAINER_USER=%s -t %s %s && rm -rf %s'", 
-		cfg.RemoteUser, cfg.RemoteHost, cfg.ContainerUser, imageName, tempDir, tempDir)
+	// Build the image on the remote server using sudo podman with container user and cache busting
+	buildCmd := fmt.Sprintf("ssh %s@%s 'sudo podman build --build-arg CONTAINER_USER=%s --build-arg CACHEBUST=%d -t %s %s && rm -rf %s'", 
+		cfg.RemoteUser, cfg.RemoteHost, cfg.ContainerUser, time.Now().Unix(), imageName, tempDir, tempDir)
 	
 	if err := runCommand(buildCmd); err != nil {
 		return fmt.Errorf("failed to build image on remote: %w", err)

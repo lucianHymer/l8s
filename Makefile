@@ -175,7 +175,9 @@ container-build: ## Build the l8s container image
 		echo "❌ Error: containers/Containerfile not found"; \
 		exit 1; \
 	fi
-	podman build -t localhost/l8s-fedora:latest -f containers/Containerfile containers/
+	podman build \
+		--build-arg CACHEBUST=$$(date +%s) \
+		-t localhost/l8s-fedora:latest -f containers/Containerfile containers/
 	@echo "✓ Container image built"
 
 .PHONY: container-build-test
@@ -185,7 +187,9 @@ container-build-test: ## Build the test container image
 		echo "❌ Error: containers/Containerfile.test not found"; \
 		exit 1; \
 	fi
-	podman build -t localhost/l8s-fedora:test -f containers/Containerfile.test containers/
+	podman build \
+		--build-arg CACHEBUST=$$(date +%s) \
+		-t localhost/l8s-fedora:test -f containers/Containerfile.test containers/
 	@echo "✓ Test container image built"
 
 .PHONY: dev

@@ -420,3 +420,4 @@ MIT License - see LICENSE file for details
 
 # TODOs
 - [ ] Fix build command requiring l8s repo - embed Containerfile so `l8s build` works from anywhere
+- [ ] Use npm and dnf cache on podman host machine instead of cleaning from images and re-downloading each build

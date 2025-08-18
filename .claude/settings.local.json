@@ -8,7 +8,15 @@
       "Bash(grep:*)",
       "Bash(go run:*)",
       "Bash(go build:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(git add:*)",
+      "Bash(rg:*)",
+      "Bash(go test:*)",
+      "Bash(make:*)",
+      "Bash(./build/l8s:*)",
+      "Bash(go clean:*)",
+      "Bash(go mod:*)",
+      "Bash(NO_COLOR=1 ./build/l8s-clean list)"
     ],
     "deny": []
   }
