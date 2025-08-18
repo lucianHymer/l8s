@@ -4,9 +4,18 @@ This guide provides detailed instructions for setting up your remote server to w
 
 ## Prerequisites
 
-- A Linux server (Fedora, RHEL, CentOS, Ubuntu, or Debian)
-- SSH access to the server
-- A non-root user with sudo privileges
+- An UNPRIVELEGED LXC container to host podman (recommend Fedora for best performace w/ podman), and used for nothing else (or only public data, nothing that should be secret from the LLM. Easiest to just use it for l8s)
+
+## Explanation
+
+This project is an attempt to maximize primarily security, and secondarily performance.
+
+The best solution seems to be using an unpriveleged LXC container and giving podman root access in this container.
+
+This way the hypervisor (Proxmox in my case) can efficiently provide access to the hardware, and podman is able to
+take full advantage of this (non-root podman has several limitations that would cause lower performance).
+
+We would not want to run podman as root outside of an unpriveleged 
 
 ## Step 1: Install Podman
 
@@ -21,9 +30,7 @@ sudo apt-get update
 sudo apt-get install -y podman
 ```
 
-## Step 2: Create a Dedicated User (Optional but Recommended)
-
-If you want to use a dedicated user for l8s operations:
+## Step 2: Create a Dedicated User
 
 ```bash
 # Create a new user
@@ -163,7 +170,7 @@ Enter the following when prompted:
 - Remote host: `your-server-ip`
 - Remote user: `poduser` (or your username)
 - SSH key path: `/home/youruser/.ssh/id_rsa`
-- Container user: `youruser` (the user inside containers)
+- Container user: `youruser` (the user inside containers, automatically created)
 - Base image: `fedora:latest` (or your preferred base)
 
 ## Troubleshooting
@@ -240,32 +247,11 @@ ssh poduser@your-server-ip "sudo systemctl status podman.socket"
 ssh poduser@your-server-ip "sudo systemctl enable --now podman.socket"
 ```
 
-### SELinux Issues (Fedora/RHEL/CentOS)
-
-If you're on a system with SELinux enabled and encounter issues:
-
-```bash
-# Check for SELinux denials
-sudo ausearch -m avc -ts recent
-
-# If needed, create a policy module (example)
-sudo ausearch -m avc -ts recent | audit2allow -M mypodman
-sudo semodule -i mypodman.pp
-```
-
 ## Security Considerations
 
-1. **User Isolation**: The poduser (or your chosen user) has sudo access to Podman only, limiting potential security exposure.
+1. **Group-based Access**: Using the podman group provides controlled access to the socket without requiring full root access.
 
-2. **Group-based Access**: Using the podman group provides controlled access to the socket without requiring full root access.
-
-3. **SSH Key Authentication**: Always use SSH keys instead of passwords for better security.
-
-4. **Firewall**: Ensure your firewall only allows SSH access from trusted IPs:
-   ```bash
-   sudo firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="YOUR.CLIENT.IP.ADDRESS" port protocol="tcp" port="22" accept'
-   sudo firewall-cmd --reload
-   ```
+2. **SSH Key Authentication**: Always use SSH keys instead of passwords for better security.
 
 ## Next Steps
 
@@ -278,7 +264,8 @@ Once your server is configured, you can:
 
 2. Create your first development container:
    ```bash
-   l8s create myproject https://github.com/yourusername/yourproject
+   cd myproject
+   l8s create myfeature
    ```
 
 3. Connect to your container:

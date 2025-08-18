@@ -2,6 +2,12 @@
   "model": "opus",
   "includeCoAuthoredBy": false,
   "forceLoginMethod": "claudeai",
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@executeautomation/playwright-mcp-server"]
+    }
+  },
   "hooks": {
     "PreToolUse": [
       {

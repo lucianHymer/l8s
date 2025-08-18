@@ -419,7 +419,4 @@ make clean
 MIT License - see LICENSE file for details
 
 # TODOs
-- [ ] Fix exit messages
-- [ ] /workspace/project (but not /workspace) and /home/<user> are incorrectly owned by root
-- [ ] Remove doesn't actually remove the volume even though it says it does, but maybe that should be a separate option anyways? Like a --parameter, or ask a question if not?
 - [ ] Fix build command requiring l8s repo - embed Containerfile so `l8s build` works from anywhere

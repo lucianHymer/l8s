@@ -560,14 +560,20 @@ func (m *Manager) copyEmbeddedDotfiles(ctx context.Context, containerName string
 			return os.MkdirAll(destPath, 0755)
 		}
 		
+		// Get file info to preserve permissions
+		info, err := fs.Stat(embedFS, path)
+		if err != nil {
+			return fmt.Errorf("failed to stat embedded file %s: %w", path, err)
+		}
+		
 		// Read file from embedded FS
 		data, err := fs.ReadFile(embedFS, path)
 		if err != nil {
 			return fmt.Errorf("failed to read embedded file %s: %w", path, err)
 		}
 		
-		// Write to temp directory
-		return os.WriteFile(destPath, data, 0644)
+		// Write to temp directory with original permissions
+		return os.WriteFile(destPath, data, info.Mode().Perm())
 	})
 	
 	if err != nil {
