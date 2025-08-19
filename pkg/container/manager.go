@@ -543,6 +543,18 @@ func (m *Manager) copyEmbeddedDotfiles(ctx context.Context, containerName string
 	}
 	defer os.RemoveAll(tempDir)
 	
+	// Define files that should be executable
+	// Go's embed package doesn't preserve executable permissions,
+	// so we need to explicitly set them for shell scripts
+	executableFiles := map[string]bool{
+		".claude/statusline.sh":           true,
+		".claude/hooks/notifications.sh":  true,
+		".claude/hooks/posttooluse.sh":    true,
+		".claude/hooks/pretooluse.sh":     true,
+		".claude/hooks/stop.sh":           true,
+		".claude/hooks/subagent-stop.sh":  true,
+	}
+	
 	// Walk through embedded filesystem and extract files
 	err = fs.WalkDir(embedFS, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -572,8 +584,15 @@ func (m *Manager) copyEmbeddedDotfiles(ctx context.Context, containerName string
 			return fmt.Errorf("failed to read embedded file %s: %w", path, err)
 		}
 		
-		// Write to temp directory with original permissions
-		return os.WriteFile(destPath, data, info.Mode().Perm())
+		// Determine the correct file mode
+		fileMode := info.Mode().Perm()
+		if executableFiles[path] || strings.HasSuffix(path, ".sh") {
+			// Make shell scripts executable (755 for scripts)
+			fileMode = 0755
+		}
+		
+		// Write to temp directory with correct permissions
+		return os.WriteFile(destPath, data, fileMode)
 	})
 	
 	if err != nil {
