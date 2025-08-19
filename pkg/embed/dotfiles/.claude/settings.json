@@ -2,6 +2,11 @@
   "model": "opus",
   "includeCoAuthoredBy": false,
   "forceLoginMethod": "claudeai",
+  "statusLine": {
+    "type": "command",
+    "command": "$HOME/.claude/statusline.sh",
+    "padding": 0
+  },
   "mcpServers": {
     "playwright": {
       "command": "npx",
