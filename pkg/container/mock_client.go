@@ -178,6 +178,6 @@ func (c *RealPodmanClient) SetupWorkspace(ctx context.Context, name string, cont
 }
 
 // BuildImage is a stub for test builds
-func BuildImage(ctx context.Context, containerfilePath, imageName string) error {
+func BuildImage(ctx context.Context, imageName string) error {
 	return fmt.Errorf("not implemented in test build")
 }

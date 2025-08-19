@@ -610,17 +610,6 @@ func (m *Manager) copyEmbeddedDotfiles(ctx context.Context, containerName string
 
 // BuildImage builds the container image on the remote server
 func (m *Manager) BuildImage(ctx context.Context, containerfile string) error {
-	// Check if containerfile exists
-	if _, err := os.Stat(containerfile); err != nil {
-		return fmt.Errorf("containerfile not found: %w", err)
-	}
-	
-	// Get absolute path
-	absPath, err := filepath.Abs(containerfile)
-	if err != nil {
-		return fmt.Errorf("failed to get absolute path: %w", err)
-	}
-	
-	// Build the image on the remote server
-	return BuildImage(ctx, absPath, m.config.BaseImage)
+	// Build the image on the remote server using embedded Containerfile
+	return BuildImage(ctx, m.config.BaseImage)
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/containers/podman/v5/pkg/api/handlers"
 	dockerContainer "github.com/docker/docker/api/types/container"
 	"l8s/pkg/config"
+	"l8s/pkg/embed"
 )
 
 // RealPodmanClient implements PodmanClient using actual Podman bindings
@@ -618,13 +619,20 @@ func (c *RealPodmanClient) SetupWorkspace(ctx context.Context, name string, cont
 	return nil
 }
 
-// BuildImage builds the container image on the remote server
-func BuildImage(ctx context.Context, containerfilePath, imageName string) error {
+// BuildImage builds the container image on the remote server using the embedded Containerfile
+func BuildImage(ctx context.Context, imageName string) error {
 	// Load configuration to get remote details
 	cfg, err := config.Load(config.GetConfigPath())
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+
+	// Extract the embedded Containerfile to a temporary location
+	containerfilePath, err := embed.ExtractContainerfile()
+	if err != nil {
+		return fmt.Errorf("failed to extract embedded Containerfile: %w", err)
+	}
+	defer os.RemoveAll(filepath.Dir(containerfilePath)) // Clean up temp dir
 
 	// Create a temporary directory on the remote server
 	tempDir := fmt.Sprintf("/tmp/l8s-build-%d", time.Now().Unix())

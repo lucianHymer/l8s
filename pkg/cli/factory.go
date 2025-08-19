@@ -142,6 +142,7 @@ func (f *CommandFactory) BuildCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "build",
 		Short: "Build or rebuild the base container image",
+		Args:  cobra.NoArgs,
 		RunE:  f.runBuild,
 	}
 }

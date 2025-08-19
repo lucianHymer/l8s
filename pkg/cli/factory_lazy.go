@@ -248,6 +248,7 @@ func (f *LazyCommandFactory) BuildCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "build",
 		Short: "Build or rebuild the base container image",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err

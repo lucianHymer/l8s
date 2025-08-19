@@ -295,15 +295,10 @@ func (f *CommandFactory) runInfo(cmd *cobra.Command, args []string) error {
 
 // runBuild handles the build command
 func (f *CommandFactory) runBuild(cmd *cobra.Command, args []string) error {
-	containerfile := "containers/Containerfile"
-	if len(args) > 0 {
-		containerfile = args[0]
-	}
-	
 	fmt.Println("Building l8s base image...")
 	
 	ctx := context.Background()
-	err := f.ContainerMgr.BuildImage(ctx, containerfile)
+	err := f.ContainerMgr.BuildImage(ctx, "")  // Empty string since we no longer use containerfile param
 	if err != nil {
 		return err
 	}
