@@ -419,6 +419,10 @@ make clean
 MIT License - see LICENSE file for details
 
 # TODOs
+- [ ] Use claude statusline that shows container and team
 - [ ] Fix build command requiring l8s repo - embed Containerfile so `l8s build` works from anywhere
 - [ ] Use npm and dnf cache on podman host machine instead of cleaning from images and re-downloading each build
 - [ ] Allow dynamic podman HOST IP
+- [ ] Git Remote column in `ls` only works if in current repo. Need to think about potential improvements.
+- [ ] Use a CA or persistent host key and make host key checking strict
+- [ ] Don't forward SSH agent
