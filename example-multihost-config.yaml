@@ -1,0 +1,26 @@
+# Example multi-host configuration for l8s
+active_host: "home"
+
+hosts:
+  home:
+    remote_host: "192.168.1.100"
+    remote_user: "podman"
+    description: "Home network - direct LAN access"
+  
+  vpn:
+    remote_host: "10.8.0.50"
+    remote_user: "podman"
+    description: "VPN access - when working remotely"
+  
+  public:
+    remote_host: "server.example.com"
+    remote_user: "admin"
+    ssh_key_path: "~/.ssh/cloud_key"  # Only specify if different from default
+    description: "Public server - accessible from anywhere"
+
+# Shared settings (apply to all hosts)
+ssh_port_start: 2200
+base_image: "localhost/l8s-fedora:latest"
+container_prefix: "dev"
+container_user: "dev"
+ssh_public_key: ""  # Leave empty for auto-detect

@@ -420,18 +420,25 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 
 	// Create config with defaults
 	cfg := config.DefaultConfig()
-
-	// Prompt for remote server configuration
-	fmt.Println("=== Remote Server Configuration ===")
 	
-	remoteHost, err := promptWithDefault("Remote server hostname/IP", "")
+	// Initialize the default connection
+	connCfg := config.ConnectionConfig{}
+
+	// Prompt for connection configuration
+	fmt.Println("=== Connection Configuration ===")
+	
+	address, err := promptWithDefault("Server IP address or hostname", "")
 	if err != nil {
 		return err
 	}
-	if remoteHost == "" {
-		return fmt.Errorf("remote server hostname is required")
+	if address == "" {
+		return fmt.Errorf("server address is required")
 	}
-	cfg.RemoteHost = remoteHost
+	connCfg.Address = address
+	connCfg.Description = "Default connection"
+	
+	// Prompt for host configuration (same for all connections)
+	fmt.Println("\n=== Host Configuration ===")
 	
 	remoteUser, err := promptWithDefault("Remote server username", "podman")
 	if err != nil {
@@ -446,22 +453,22 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 		fmt.Printf("   echo \"%s ALL=(ALL) NOPASSWD: /usr/bin/podman\" | sudo tee /etc/sudoers.d/podman\n\n", remoteUser)
 	}
 	
-	remoteSocket, err := promptWithDefault("Remote Podman socket path", cfg.RemoteSocket)
+	remoteSocket, err := promptWithDefault("Remote Podman socket path", "/run/podman/podman.sock")
 	if err != nil {
 		return err
 	}
 	cfg.RemoteSocket = remoteSocket
 	
 	// Test SSH connectivity
-	fmt.Printf("\nTesting SSH connection to %s@%s...\n", cfg.RemoteUser, cfg.RemoteHost)
+	fmt.Printf("\nTesting SSH connection to %s@%s...\n", cfg.RemoteUser, connCfg.Address)
 	testCmd := exec.Command("ssh", "-o", "ConnectTimeout=5", 
-		fmt.Sprintf("%s@%s", cfg.RemoteUser, cfg.RemoteHost), "echo", "OK")
+		fmt.Sprintf("%s@%s", cfg.RemoteUser, connCfg.Address), "echo", "OK")
 	output, err := testCmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("Failed to connect via SSH: %v\n", err)
 		fmt.Printf("Output: %s\n", string(output))
 		fmt.Printf("\nPlease ensure:\n")
-		fmt.Printf("1. SSH key is configured: ssh-copy-id %s@%s\n", cfg.RemoteUser, cfg.RemoteHost)
+		fmt.Printf("1. SSH key is configured: ssh-copy-id %s@%s\n", cfg.RemoteUser, connCfg.Address)
 		fmt.Printf("2. Server is accessible\n")
 		if cfg.RemoteUser != "root" {
 			fmt.Printf("3. User has sudo access to Podman (see instructions above)\n")
@@ -475,11 +482,17 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 	// Prompt for other configuration
 	fmt.Println("\n=== Container Configuration ===")
 	
-	sshKeyPath, err := promptWithDefault("SSH private key path", cfg.SSHKeyPath)
+	sshKeyPath, err := promptWithDefault("SSH private key path", "")
 	if err != nil {
 		return err
 	}
-	cfg.SSHKeyPath = sshKeyPath
+	if sshKeyPath != "" {
+		cfg.SSHKeyPath = sshKeyPath
+	}
+	
+	// Add the connection configuration
+	cfg.Connections["default"] = connCfg
+	cfg.ActiveConnection = "default"
 	
 	baseImage, err := promptWithDefault("Base container image", cfg.BaseImage)
 	if err != nil {
@@ -547,7 +560,7 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 	fmt.Println("\n=== Configuration Complete ===")
 	fmt.Printf("Configuration saved to: %s\n", configPath)
 	fmt.Println("\nNext steps:")
-	fmt.Printf("1. Ensure Podman is running on %s\n", cfg.RemoteHost)
+	fmt.Printf("1. Ensure Podman is running on %s\n", connCfg.Address)
 	if cfg.RemoteUser != "root" {
 		fmt.Printf("   - Set up sudo access: echo \"%s ALL=(ALL) NOPASSWD: /usr/bin/podman\" | sudo tee /etc/sudoers.d/podman\n", cfg.RemoteUser)
 	}

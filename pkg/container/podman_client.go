@@ -48,18 +48,14 @@ func NewPodmanClient() (*RealPodmanClient, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 	
-	// Validate remote configuration
-	if cfg.RemoteHost == "" || cfg.RemoteUser == "" {
-		return nil, fmt.Errorf(`l8s requires remote server configuration.
+	// Get active connection address
+	address, err := cfg.GetActiveAddress()
+	if err != nil {
+		return nil, fmt.Errorf(`l8s requires remote server configuration: %w
 
-Please configure your remote server in ~/.config/l8s/config.yaml:
+Please configure your remote server in ~/.config/l8s/config.yaml or run 'l8s init' to set up your configuration.
 
-  remote_host: your-server.example.com
-  remote_user: your-username
-
-Or run 'l8s init' to set up your configuration.
-
-Note: l8s ONLY supports remote container management for security isolation.`)
+Note: l8s ONLY supports remote container management for security isolation.`, err)
 	}
 	
 	// Build connection string for SSH access to remote Podman
@@ -73,9 +69,10 @@ Note: l8s ONLY supports remote container management for security isolation.`)
 	// 4. The /run/podman directory must be accessible (755)
 	//
 	// See docs/REMOTE_SERVER_SETUP.md for detailed setup instructions
-	connectionURI := fmt.Sprintf("ssh://%s@%s/run/podman/podman.sock",
+	connectionURI := fmt.Sprintf("ssh://%s@%s%s",
 		cfg.RemoteUser,
-		cfg.RemoteHost,
+		address,
+		cfg.RemoteSocket,
 	)
 	
 	// Verify ssh-agent is running
@@ -114,9 +111,9 @@ Please ensure your SSH key is added to ssh-agent:
   ssh-add %s  # Add your key if not listed
 
 Also verify you can SSH directly to the server:
-  ssh %s@%s`, cfg.RemoteHost, cfg.RemoteUser, err, cfg.SSHKeyPath, cfg.RemoteUser, cfg.RemoteHost)
+  ssh %s@%s`, address, cfg.RemoteUser, err, cfg.SSHKeyPath, cfg.RemoteUser, address)
 		}
-		return nil, fmt.Errorf("failed to connect to remote Podman at %s: %w", cfg.RemoteHost, err)
+		return nil, fmt.Errorf("failed to connect to remote Podman at %s: %w", address, err)
 	}
 	
 	// Test connection
@@ -143,7 +140,7 @@ Please ensure your SSH key is added to ssh-agent:
   ssh-add %s  # Add your key if not listed
 
 Also verify you can SSH directly to the server:
-  ssh %s@%s`, cfg.RemoteHost, cfg.RemoteUser, err, cfg.SSHKeyPath, cfg.RemoteUser, cfg.RemoteHost)
+  ssh %s@%s`, address, cfg.RemoteUser, err, cfg.SSHKeyPath, cfg.RemoteUser, address)
 		}
 		
 		return nil, fmt.Errorf(`failed to connect to Podman on remote server.
@@ -163,15 +160,15 @@ Troubleshooting:
 5. Verify ssh-agent has your key: ssh-add -l
 
 For detailed setup instructions, see: docs/REMOTE_SERVER_SETUP.md`,
-			cfg.RemoteHost, cfg.RemoteUser, cfg.RemoteSocket, err,
-			cfg.RemoteUser, cfg.RemoteHost,
-			cfg.RemoteUser, cfg.RemoteHost,
-			cfg.RemoteUser, cfg.RemoteHost)
+			address, cfg.RemoteUser, cfg.RemoteSocket, err,
+			cfg.RemoteUser, address,
+			cfg.RemoteUser, address,
+			cfg.RemoteUser, address)
 	}
 	
 	return &RealPodmanClient{
 		conn:       conn,
-		remoteHost: cfg.RemoteHost,
+		remoteHost: address,
 		remoteUser: cfg.RemoteUser,
 	}, nil
 }
@@ -626,6 +623,12 @@ func BuildImage(ctx context.Context, imageName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+	
+	// Get active connection address
+	address, err := cfg.GetActiveAddress()
+	if err != nil {
+		return fmt.Errorf("failed to get active connection: %w", err)
+	}
 
 	// Extract the embedded Containerfile to a temporary location
 	containerfilePath, err := embed.ExtractContainerfile()
@@ -636,21 +639,21 @@ func BuildImage(ctx context.Context, imageName string) error {
 
 	// Create a temporary directory on the remote server
 	tempDir := fmt.Sprintf("/tmp/l8s-build-%d", time.Now().Unix())
-	mkdirCmd := fmt.Sprintf("ssh %s@%s 'mkdir -p %s'", cfg.RemoteUser, cfg.RemoteHost, tempDir)
+	mkdirCmd := fmt.Sprintf("ssh %s@%s 'mkdir -p %s'", cfg.RemoteUser, address, tempDir)
 	if err := runCommand(mkdirCmd); err != nil {
 		return fmt.Errorf("failed to create temp directory on remote: %w", err)
 	}
 	
 	// Copy the Containerfile to the remote server
 	remotePath := filepath.Join(tempDir, "Containerfile")
-	scpCmd := fmt.Sprintf("scp %s %s@%s:%s", containerfilePath, cfg.RemoteUser, cfg.RemoteHost, remotePath)
+	scpCmd := fmt.Sprintf("scp %s %s@%s:%s", containerfilePath, cfg.RemoteUser, address, remotePath)
 	if err := runCommand(scpCmd); err != nil {
 		return fmt.Errorf("failed to copy Containerfile to remote: %w", err)
 	}
 	
 	// Build the image on the remote server using sudo podman with container user and cache busting
 	buildCmd := fmt.Sprintf("ssh %s@%s 'sudo podman build --build-arg CONTAINER_USER=%s --build-arg CACHEBUST=%d -t %s %s && rm -rf %s'", 
-		cfg.RemoteUser, cfg.RemoteHost, cfg.ContainerUser, time.Now().Unix(), imageName, tempDir, tempDir)
+		cfg.RemoteUser, address, cfg.ContainerUser, time.Now().Unix(), imageName, tempDir, tempDir)
 	
 	if err := runCommand(buildCmd); err != nil {
 		return fmt.Errorf("failed to build image on remote: %w", err)

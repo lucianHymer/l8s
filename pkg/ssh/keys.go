@@ -286,13 +286,18 @@ func AddSSHConfig(name, hostname string, port int, user string) error {
 		return err
 	}
 	
+	address, err := cfg.GetActiveAddress()
+	if err != nil {
+		return err
+	}
+	
 	sshConfigPath := filepath.Join(GetHomeDir(), ".ssh", "config")
 	entry := GenerateSSHConfigEntry(
 		fmt.Sprintf("dev-%s", name), 
 		port, 
 		user, 
 		"dev",
-		cfg.RemoteHost, // Use remote host instead of localhost
+		address, // Use connection address
 	)
 	return AddSSHConfigEntry(sshConfigPath, entry)
 }

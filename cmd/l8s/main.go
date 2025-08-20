@@ -44,6 +44,7 @@ accessible via SSH using key-based authentication.`,
 		factory.BuildCmd(),
 		factory.RemoteCmd(),
 		factory.ExecCmd(),
+		factory.ConnectionCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

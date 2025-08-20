@@ -36,6 +36,17 @@ func (f *LazyCommandFactory) defaultInitializer() error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w\n\nRun 'l8s init' to configure l8s for your remote server", err)
 	}
+	
+	// Validate that SSH configs match the active connection
+	address, err := cfg.GetActiveAddress()
+	if err != nil {
+		return fmt.Errorf("failed to get active connection: %w", err)
+	}
+	
+	if err := ValidateSSHConfigsMatchConnection(address); err != nil {
+		return fmt.Errorf("SSH configs don't match active connection '%s': %w\n\nRun 'l8s connection switch %s' to fix this",
+			cfg.ActiveConnection, err, cfg.ActiveConnection)
+	}
 
 	podmanClient, err := container.NewPodmanClient()
 	if err != nil {
@@ -350,4 +361,59 @@ You'll need:
 			return origFactory.runInit(cmd, args)
 		},
 	}
+}
+
+// ConnectionCmd returns the connection command with subcommands
+func (f *LazyCommandFactory) ConnectionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "connection",
+		Short: "Manage Podman connection configurations",
+		Long:  "Manage multiple Podman connection configurations for different network access scenarios",
+	}
+	
+	// List subcommand
+	cmd.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List all configured Podman connections",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := f.ensureInitialized(); err != nil {
+				return err
+			}
+			return (&ConnectionListCommand{config: f.Config}).Execute(cmd.Context())
+		},
+	})
+	
+	// Show subcommand
+	cmd.AddCommand(&cobra.Command{
+		Use:   "show",
+		Short: "Show current Podman connection details",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := f.ensureInitialized(); err != nil {
+				return err
+			}
+			return (&ConnectionShowCommand{config: f.Config}).Execute(cmd.Context())
+		},
+	})
+	
+	// Switch subcommand
+	var dryRun bool
+	switchCmd := &cobra.Command{
+		Use:   "switch <name>",
+		Short: "Switch to a different Podman connection",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := f.ensureInitialized(); err != nil {
+				return err
+			}
+			return (&ConnectionSwitchCommand{
+				config:           f.Config,
+				targetConnection: args[0],
+				dryRun:           dryRun,
+			}).Execute(cmd.Context())
+		},
+	}
+	switchCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would change without making changes")
+	cmd.AddCommand(switchCmd)
+	
+	return cmd
 }
