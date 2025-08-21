@@ -80,7 +80,6 @@ func GenerateSSHConfigEntry(containerName string, sshPort int, containerUser, pr
     User %s
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
-    ForwardAgent yes
     ControlMaster auto
     ControlPath ~/.ssh/control-%%r@%%h:%%p
     ControlPersist 10m

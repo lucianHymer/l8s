@@ -168,7 +168,6 @@ func TestSSHConfigEntry(t *testing.T) {
     User dev
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
-    ForwardAgent yes
     ControlMaster auto
     ControlPath ~/.ssh/control-%r@%h:%p
     ControlPersist 10m`,
@@ -185,7 +184,6 @@ func TestSSHConfigEntry(t *testing.T) {
     User lucian
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
-    ForwardAgent yes
     ControlMaster auto
     ControlPath ~/.ssh/control-%r@%h:%p
     ControlPersist 10m`,
