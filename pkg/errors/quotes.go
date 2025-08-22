@@ -7,13 +7,11 @@ import (
 )
 
 var lebowskiQuotes = []string{
-	"Am I the only one around here who gives a shit about the rules?!",
+	"Smokey, this isn't 'Nam. This is bowling. There are rules. Mark it zero!",
 	"You're out of your element, Donny!",
 	"This aggression will not stand, man!",
-	"You're entering a world of pain!",
 	"Obviously you're not a golfer.",
-	"Do you see what happens, Larry?!",
-	"Calmer than you are.",
+	"Calmer than you are dude.",
 }
 
 // No need for init() - Go 1.20+ auto-seeds rand
