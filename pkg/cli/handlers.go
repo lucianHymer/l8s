@@ -612,3 +612,53 @@ func expandPath(path string) string {
 
 	return path
 }
+
+// HandleRebuild handles the rebuild command
+func (f *CommandFactory) HandleRebuild(name string, build, skipBuild bool) error {
+	ctx := context.Background()
+	
+	// Step 1: Get current container info to verify it exists
+	_, err := f.ContainerMgr.GetContainerInfo(ctx, name)
+	if err != nil {
+		return fmt.Errorf("container '%s' not found: %w", name, err)
+	}
+	
+	// Step 2: Handle image build decision
+	var shouldBuild bool
+	if !build && !skipBuild {
+		// Interactive prompt when no flags specified
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Printf("Would you like to rebuild the base image first? [Y/n]: ")
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			return err
+		}
+		response = strings.TrimSpace(strings.ToLower(response))
+		shouldBuild = (response == "" || response == "y" || response == "yes")
+	} else {
+		shouldBuild = build
+	}
+	
+	// Step 3: Build image if requested
+	if shouldBuild {
+		fmt.Println("Building l8s base image...")
+		if err := f.ContainerMgr.BuildImage(ctx, ""); err != nil {
+			return fmt.Errorf("failed to build image: %w", err)
+		}
+		color.Printf("{green}✓{reset} Image built successfully\n")
+	}
+	
+	// Step 4: Execute rebuild
+	color.Printf("🎳 {cyan}Rebuilding container:{reset} {bold}%s-%s{reset}\n", f.Config.ContainerPrefix, name)
+	
+	if err := f.ContainerMgr.RebuildContainer(ctx, name); err != nil {
+		return fmt.Errorf("failed to rebuild container: %w", err)
+	}
+	
+	// Step 5: Display success information
+	color.Printf("{green}✓{reset} Container rebuilt successfully!\n")
+	fmt.Printf("\nConnect with:\n")
+	fmt.Printf("  ssh %s-%s\n", f.Config.ContainerPrefix, name)
+	
+	return nil
+}

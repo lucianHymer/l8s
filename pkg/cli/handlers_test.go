@@ -70,6 +70,11 @@ func (m *MockContainerManagerWithGit) SSHIntoContainer(ctx context.Context, name
 	return args.Error(0)
 }
 
+func (m *MockContainerManagerWithGit) RebuildContainer(ctx context.Context, name string) error {
+	args := m.Called(ctx, name)
+	return args.Error(0)
+}
+
 // Enhanced mock for git operations
 type MockGitClientEnhanced struct {
 	mock.Mock
@@ -345,6 +350,125 @@ func TestCreateCommandValidation(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestHandleRebuild(t *testing.T) {
+	tests := []struct {
+		name          string
+		containerName string
+		build         bool
+		skipBuild     bool
+		setupMocks    func(*MockContainerManagerWithGit)
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:          "successful rebuild with build",
+			containerName: "myproject",
+			build:         true,
+			skipBuild:     false,
+			setupMocks: func(m *MockContainerManagerWithGit) {
+				// Get container info
+				m.On("GetContainerInfo", mock.Anything, "myproject").Return(&container.Container{
+					Name:    "dev-myproject",
+					SSHPort: 2201,
+					Status:  "running",
+				}, nil)
+				
+				// Build image
+				m.On("BuildImage", mock.Anything, "").Return(nil)
+				
+				// Rebuild container
+				m.On("RebuildContainer", mock.Anything, "myproject").Return(nil)
+			},
+			expectError: false,
+		},
+		{
+			name:          "successful rebuild without build",
+			containerName: "myproject",
+			build:         false,
+			skipBuild:     true,
+			setupMocks: func(m *MockContainerManagerWithGit) {
+				m.On("GetContainerInfo", mock.Anything, "myproject").Return(&container.Container{
+					Name:    "dev-myproject",
+					SSHPort: 2201,
+					Status:  "running",
+				}, nil)
+				
+				m.On("RebuildContainer", mock.Anything, "myproject").Return(nil)
+			},
+			expectError: false,
+		},
+		{
+			name:          "container not found",
+			containerName: "nonexistent",
+			skipBuild:     true,
+			setupMocks: func(m *MockContainerManagerWithGit) {
+				m.On("GetContainerInfo", mock.Anything, "nonexistent").
+					Return(nil, errors.New("container not found"))
+			},
+			expectError:   true,
+			errorContains: "not found",
+		},
+		{
+			name:          "build fails",
+			containerName: "myproject",
+			build:         true,
+			setupMocks: func(m *MockContainerManagerWithGit) {
+				m.On("GetContainerInfo", mock.Anything, "myproject").Return(&container.Container{
+					Name:    "dev-myproject",
+					SSHPort: 2201,
+					Status:  "running",
+				}, nil)
+				
+				m.On("BuildImage", mock.Anything, "").Return(errors.New("build failed"))
+			},
+			expectError:   true,
+			errorContains: "failed to build image",
+		},
+		{
+			name:          "rebuild fails",
+			containerName: "myproject",
+			skipBuild:     true,
+			setupMocks: func(m *MockContainerManagerWithGit) {
+				m.On("GetContainerInfo", mock.Anything, "myproject").Return(&container.Container{
+					Name:    "dev-myproject",
+					SSHPort: 2201,
+					Status:  "running",
+				}, nil)
+				
+				m.On("RebuildContainer", mock.Anything, "myproject").
+					Return(errors.New("rebuild failed"))
+			},
+			expectError:   true,
+			errorContains: "failed to rebuild container",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockMgr := new(MockContainerManagerWithGit)
+			tt.setupMocks(mockMgr)
+			
+			factory := &CommandFactory{
+				Config:       &config.Config{ContainerPrefix: "dev"},
+				ContainerMgr: mockMgr,
+			}
+			
+			err := factory.HandleRebuild(tt.containerName, tt.build, tt.skipBuild)
+			
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+			
+			mockMgr.AssertExpectations(t)
 		})
 	}
 }

@@ -17,6 +17,7 @@ type ContainerManager interface {
 	ExecContainer(ctx context.Context, name string, cmd []string) error
 	SSHIntoContainer(ctx context.Context, name string) error
 	BuildImage(ctx context.Context, containerfile string) error
+	RebuildContainer(ctx context.Context, name string) error
 }
 
 // GitClient defines the interface for git operations

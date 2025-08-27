@@ -120,6 +120,10 @@ func (m *MockContainerManager) SSHIntoContainer(ctx context.Context, name string
 	return nil
 }
 
+func (m *MockContainerManager) RebuildContainer(ctx context.Context, name string) error {
+	return nil
+}
+
 type MockGitClient struct{}
 
 func (m *MockGitClient) CloneRepository(repoPath, gitURL, branch string) error {

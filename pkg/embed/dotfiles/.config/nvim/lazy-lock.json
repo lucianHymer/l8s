@@ -1,6 +1,6 @@
 {
   "copilot.vim": { "branch": "release", "commit": "f3d66c148aa60ad04c0a21d3e0a776459de09eb2" },
-  "fzf": { "branch": "master", "commit": "f9d7877d8b01e58c53c5b7f746f02c8ab81b17d6" },
+  "fzf": { "branch": "master", "commit": "5546c65491a26c7cd01e08d4ecc65eaab89b3363" },
   "fzf.vim": { "branch": "master", "commit": "3725f364ccd25b85a91970720ba9bc2931861910" },
   "gruvbox": { "branch": "master", "commit": "697c00291db857ca0af00ec154e5bd514a79191f" },
   "lazy.nvim": { "branch": "main", "commit": "6c3bda4aca61a13a9c63f1c1d1b16b9d3be90d7a" },

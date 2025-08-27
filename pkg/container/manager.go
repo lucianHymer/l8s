@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"l8s/pkg/cleanup"
 	"l8s/pkg/embed"
@@ -612,4 +613,84 @@ func (m *Manager) copyEmbeddedDotfiles(ctx context.Context, containerName string
 func (m *Manager) BuildImage(ctx context.Context, containerfile string) error {
 	// Build the image on the remote server using embedded Containerfile
 	return BuildImage(ctx, m.config.BaseImage)
+}
+
+// RebuildContainer rebuilds a container with the latest image while preserving data
+func (m *Manager) RebuildContainer(ctx context.Context, name string) error {
+	containerName := m.config.ContainerPrefix + "-" + name
+	
+	// Step 1: Get current container configuration
+	containerInfo, err := m.client.GetContainerInfo(ctx, containerName)
+	if err != nil {
+		return fmt.Errorf("failed to get container info: %w", err)
+	}
+	
+	// Extract SSH port to preserve
+	sshPort := containerInfo.SSHPort
+	if sshPort == 0 {
+		return fmt.Errorf("container has no SSH port configured")
+	}
+	
+	// Step 2: Stop the container
+	m.logger.Debug("stopping container for rebuild",
+		logging.WithField("container", containerName))
+	
+	if err := m.client.StopContainer(ctx, containerName); err != nil {
+		// Container might already be stopped
+		m.logger.Debug("container stop failed (may already be stopped)",
+			logging.WithError(err))
+	}
+	
+	// Step 3: Remove container (preserves named volumes automatically)
+	m.logger.Debug("removing container",
+		logging.WithField("container", containerName))
+	
+	if err := m.client.RemoveContainer(ctx, containerName, false); err != nil {
+		return fmt.Errorf("failed to remove container: %w", err)
+	}
+	
+	// Step 4: Create new container with same configuration
+	// Note: SSH keys are already in the persisted home volume, so we pass empty string
+	m.logger.Debug("creating new container",
+		logging.WithField("container", containerName),
+		logging.WithField("ssh_port", sshPort))
+	
+	config := ContainerConfig{
+		Name:          containerName,
+		SSHPort:       sshPort,  // Preserve the same SSH port
+		SSHPublicKey:  "",       // Empty - authorized_keys already exists in volume
+		BaseImage:     m.config.BaseImage,  // Use current configured image
+		ContainerUser: m.config.ContainerUser,
+		Labels: map[string]string{
+			LabelManaged:  "true",
+			LabelSSHPort:  fmt.Sprintf("%d", sshPort),
+		},
+	}
+	
+	if _, err := m.client.CreateContainer(ctx, config); err != nil {
+		return fmt.Errorf("failed to create container: %w", err)
+	}
+	
+	// Step 5: Start the new container
+	if err := m.client.StartContainer(ctx, containerName); err != nil {
+		// Try to clean up if start fails
+		_ = m.client.RemoveContainer(ctx, containerName, false)
+		return fmt.Errorf("failed to start container: %w", err)
+	}
+	
+	// Step 6: Wait for container to be ready
+	// Simple sleep for now - could be enhanced with actual SSH check
+	time.Sleep(2 * time.Second)
+	
+	// No need to:
+	// - Deploy dotfiles (already in home volume)
+	// - Setup SSH config (should already exist on host)
+	// - Initialize git repository (already in workspace volume)
+	// All user data persists in the volumes!
+	
+	m.logger.Info("container rebuilt successfully",
+		logging.WithField("container", containerName),
+		logging.WithField("ssh_port", sshPort))
+	
+	return nil
 }

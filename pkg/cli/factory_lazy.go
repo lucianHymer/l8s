@@ -363,6 +363,46 @@ You'll need:
 	}
 }
 
+// RebuildCmd returns the rebuild command with lazy initialization
+func (f *LazyCommandFactory) RebuildCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rebuild <name>",
+		Short: "Rebuild container with updated image while preserving data",
+		Long: `Rebuild recreates a container with the latest base image while preserving:
+- All workspace and home directory data (volumes)
+- SSH port assignment
+- Container name and configuration`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := f.ensureInitialized(); err != nil {
+				return err
+			}
+			
+			// Get flags
+			build, _ := cmd.Flags().GetBool("build")
+			skipBuild, _ := cmd.Flags().GetBool("skip-build")
+			
+			// Validate mutually exclusive flags
+			if build && skipBuild {
+				return fmt.Errorf("--build and --skip-build are mutually exclusive")
+			}
+			
+			origFactory := &CommandFactory{
+				Config:       f.Config,
+				ContainerMgr: f.ContainerMgr,
+				GitClient:    f.GitClient,
+				SSHClient:    f.SSHClient,
+			}
+			return origFactory.HandleRebuild(args[0], build, skipBuild)
+		},
+	}
+	
+	cmd.Flags().Bool("build", false, "Build image before rebuilding")
+	cmd.Flags().Bool("skip-build", false, "Skip build and use existing image")
+	
+	return cmd
+}
+
 // ConnectionCmd returns the connection command with subcommands
 func (f *LazyCommandFactory) ConnectionCmd() *cobra.Command {
 	cmd := &cobra.Command{
