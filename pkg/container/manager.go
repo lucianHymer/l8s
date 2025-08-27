@@ -112,11 +112,9 @@ func (m *Manager) CreateContainer(ctx context.Context, name, sshKey string) (*Co
 		return nil, fmt.Errorf("failed to setup SSH: %w", err)
 	}
 
-	// Fix home directory permissions before copying dotfiles
-	homeDir := fmt.Sprintf("/home/%s", m.config.ContainerUser)
-	chownCmd := []string{"chown", "-R", fmt.Sprintf("%s:%s", m.config.ContainerUser, m.config.ContainerUser), homeDir}
-	if err := m.client.ExecContainer(ctx, containerName, chownCmd); err != nil {
-		m.logger.Warn("failed to fix home directory ownership",
+	// Fix volume ownership (home and workspace)
+	if err := m.fixVolumeOwnership(ctx, containerName); err != nil {
+		m.logger.Warn("failed to fix volume ownership",
 			logging.WithError(err),
 			logging.WithField("container", containerName))
 	}
@@ -125,14 +123,6 @@ func (m *Manager) CreateContainer(ctx context.Context, name, sshKey string) (*Co
 	if err := m.copyDotfiles(ctx, containerName); err != nil {
 		// Log error but don't fail container creation
 		m.logger.Warn("failed to copy dotfiles",
-			logging.WithError(err),
-			logging.WithField("container", containerName))
-	}
-
-	// Setup workspace directory
-	if err := m.client.SetupWorkspace(ctx, containerName, m.config.ContainerUser); err != nil {
-		// Log error but don't fail container creation
-		m.logger.Warn("failed to setup workspace directory",
 			logging.WithError(err),
 			logging.WithField("container", containerName))
 	}
@@ -615,6 +605,28 @@ func (m *Manager) BuildImage(ctx context.Context, containerfile string) error {
 	return BuildImage(ctx, m.config.BaseImage)
 }
 
+// fixVolumeOwnership ensures the home and workspace directories have proper ownership
+func (m *Manager) fixVolumeOwnership(ctx context.Context, containerName string) error {
+	// Fix home directory ownership
+	homeDir := fmt.Sprintf("/home/%s", m.config.ContainerUser)
+	homeChownCmd := []string{"chown", "-R", fmt.Sprintf("%s:%s", m.config.ContainerUser, m.config.ContainerUser), homeDir}
+	if err := m.client.ExecContainer(ctx, containerName, homeChownCmd); err != nil {
+		m.logger.Warn("failed to fix home directory ownership",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
+	}
+	
+	// Fix workspace directory ownership
+	workspaceChownCmd := []string{"chown", fmt.Sprintf("%s:%s", m.config.ContainerUser, m.config.ContainerUser), "/workspace"}
+	if err := m.client.ExecContainer(ctx, containerName, workspaceChownCmd); err != nil {
+		m.logger.Warn("failed to fix workspace directory ownership",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
+	}
+	
+	return nil
+}
+
 // RebuildContainer rebuilds a container with the latest image while preserving data
 func (m *Manager) RebuildContainer(ctx context.Context, name string) error {
 	containerName := m.config.ContainerPrefix + "-" + name
@@ -682,11 +694,13 @@ func (m *Manager) RebuildContainer(ctx context.Context, name string) error {
 	// Simple sleep for now - could be enhanced with actual SSH check
 	time.Sleep(2 * time.Second)
 	
-	// No need to:
-	// - Deploy dotfiles (already in home volume)
-	// - Setup SSH config (should already exist on host)
-	// - Initialize git repository (already in workspace volume)
-	// All user data persists in the volumes!
+	// Step 7: Fix volume ownership
+	// The volumes persist but may have incorrect ownership after remount
+	if err := m.fixVolumeOwnership(ctx, containerName); err != nil {
+		m.logger.Warn("failed to fix volume ownership",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
+	}
 	
 	m.logger.Info("container rebuilt successfully",
 		logging.WithField("container", containerName),

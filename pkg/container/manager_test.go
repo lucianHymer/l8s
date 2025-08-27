@@ -57,8 +57,11 @@ func TestManager_CreateContainer(t *testing.T) {
 				m.On("ExecContainer", mock.Anything, "dev-myproject", 
 					[]string{"chown", "-R", "dev:dev", "/home/dev/.ssh"}).Return(nil)
 				
-				// Mock SetupWorkspace call
-				m.On("SetupWorkspace", mock.Anything, "dev-myproject", "dev").Return(nil)
+				// Mock fixVolumeOwnership calls
+				m.On("ExecContainer", mock.Anything, "dev-myproject", 
+					[]string{"chown", "-R", "dev:dev", "/home/dev"}).Return(nil)
+				m.On("ExecContainer", mock.Anything, "dev-myproject", 
+					[]string{"chown", "dev:dev", "/workspace"}).Return(nil)
 				
 				// Mock copyDotfiles calls (embedded dotfiles)
 				m.On("CopyToContainer", mock.Anything, "dev-myproject",
@@ -407,8 +410,11 @@ func TestManager_WorkspaceOwnership(t *testing.T) {
 	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 
 		[]string{"chown", "-R", "dev:dev", "/home/dev/.ssh"}).Return(nil)
 	
-	// Mock SetupWorkspace call
-	mockClient.On("SetupWorkspace", mock.Anything, "dev-myproject", "dev").Return(nil)
+	// Mock fixVolumeOwnership calls
+	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 
+		[]string{"chown", "-R", "dev:dev", "/home/dev"}).Return(nil)
+	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 
+		[]string{"chown", "dev:dev", "/workspace"}).Return(nil)
 	
 	// Mock copyDotfiles calls (embedded dotfiles)
 	mockClient.On("CopyToContainer", mock.Anything, "dev-myproject",
