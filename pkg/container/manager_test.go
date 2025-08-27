@@ -61,7 +61,7 @@ func TestManager_CreateContainer(t *testing.T) {
 				m.On("ExecContainer", mock.Anything, "dev-myproject", 
 					[]string{"chown", "-R", "dev:dev", "/home/dev"}).Return(nil)
 				m.On("ExecContainer", mock.Anything, "dev-myproject", 
-					[]string{"chown", "dev:dev", "/workspace"}).Return(nil)
+					[]string{"chown", "-R", "dev:dev", "/workspace"}).Return(nil)
 				
 				// Mock copyDotfiles calls (embedded dotfiles)
 				m.On("CopyToContainer", mock.Anything, "dev-myproject",
@@ -414,7 +414,7 @@ func TestManager_WorkspaceOwnership(t *testing.T) {
 	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 
 		[]string{"chown", "-R", "dev:dev", "/home/dev"}).Return(nil)
 	mockClient.On("ExecContainer", mock.Anything, "dev-myproject", 
-		[]string{"chown", "dev:dev", "/workspace"}).Return(nil)
+		[]string{"chown", "-R", "dev:dev", "/workspace"}).Return(nil)
 	
 	// Mock copyDotfiles calls (embedded dotfiles)
 	mockClient.On("CopyToContainer", mock.Anything, "dev-myproject",

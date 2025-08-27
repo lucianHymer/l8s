@@ -599,23 +599,6 @@ func (c *RealPodmanClient) CopyToContainer(ctx context.Context, name string, src
 	return nil
 }
 
-// SetupWorkspace ensures the workspace directory exists with proper permissions
-func (c *RealPodmanClient) SetupWorkspace(ctx context.Context, name string, containerUser string) error {
-	// Create workspace directory
-	mkdirCmd := []string{"mkdir", "-p", "/workspace"}
-	if err := c.ExecContainer(ctx, name, mkdirCmd); err != nil {
-		return fmt.Errorf("failed to create workspace directory: %w", err)
-	}
-
-	// Set ownership of workspace directory
-	chownCmd := []string{"chown", fmt.Sprintf("%s:%s", containerUser, containerUser), "/workspace"}
-	if err := c.ExecContainer(ctx, name, chownCmd); err != nil {
-		return fmt.Errorf("failed to set workspace ownership: %w", err)
-	}
-
-	return nil
-}
-
 // BuildImage builds the container image on the remote server using the embedded Containerfile
 func BuildImage(ctx context.Context, imageName string) error {
 	// Load configuration to get remote details

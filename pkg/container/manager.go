@@ -616,8 +616,8 @@ func (m *Manager) fixVolumeOwnership(ctx context.Context, containerName string) 
 			logging.WithField("container", containerName))
 	}
 	
-	// Fix workspace directory ownership
-	workspaceChownCmd := []string{"chown", fmt.Sprintf("%s:%s", m.config.ContainerUser, m.config.ContainerUser), "/workspace"}
+	// Fix workspace directory ownership (recursive)
+	workspaceChownCmd := []string{"chown", "-R", fmt.Sprintf("%s:%s", m.config.ContainerUser, m.config.ContainerUser), "/workspace"}
 	if err := m.client.ExecContainer(ctx, containerName, workspaceChownCmd); err != nil {
 		m.logger.Warn("failed to fix workspace directory ownership",
 			logging.WithError(err),
