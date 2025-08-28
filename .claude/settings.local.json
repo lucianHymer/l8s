@@ -19,5 +19,8 @@
       "Bash(NO_COLOR=1 ./build/l8s-clean list)"
     ],
     "deny": []
-  }
+  },
+  "enabledMcpjsonServers": [
+    "chronicler"
+  ]
 }
