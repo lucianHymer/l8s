@@ -6,6 +6,7 @@
 
 - [Command Factory Architecture](architecture/command_factory.md) - Dual factory pattern for fast CLI startup
 - [SSH and Container Operations](architecture/ssh_container_operations.md) - Remote-only container management via SSH
+- [ZSH Completion System](architecture/zsh_completion.md) - Sophisticated tab completion architecture
 
 ## 📐 Patterns
 
@@ -19,11 +20,13 @@
 ## 🧪 Testing
 
 - [Make CI Requirements](testing/make_ci_requirements.md) - Comprehensive CI validation process
+- [ZSH Completion Test Framework](testing/zsh_completion_framework.md) - Custom framework with 91 tests
 
 ## ⚠️ Gotchas
 
 - [Testing Unexported Methods](gotchas/testing_unexported_methods.md) - Handler testing limitations and solutions
+- [ZSH Completion Flags](gotchas/zsh_completion_flags.md) - Nonexistent list command flags issue
 
 ---
 
-*This knowledge base is automatically maintained by the Chronicler system.*
+*This knowledge base is automatically maintained by the Mim system.*
