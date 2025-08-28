@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -361,6 +362,73 @@ func (f *CommandFactory) runExec(cmd *cobra.Command, args []string) error {
 	
 	ctx := context.Background()
 	return f.ContainerMgr.ExecContainer(ctx, name, command)
+}
+
+// runPaste handles the paste command
+func (f *CommandFactory) runPaste(cmd *cobra.Command, args []string) error {
+	containerName := args[0]
+	var customName string
+	if len(args) > 1 {
+		customName = args[1]
+	}
+
+	// Check platform - only macOS supported initially
+	if runtime.GOOS != "darwin" {
+		return fmt.Errorf("paste command is currently only supported on macOS")
+	}
+
+	ctx := context.Background()
+
+	// Check if container exists and is running
+	cont, err := f.ContainerMgr.GetContainerInfo(ctx, containerName)
+	if err != nil {
+		return fmt.Errorf("container '%s' not found: %w", containerName, err)
+	}
+	if cont.Status != "running" {
+		return fmt.Errorf("container '%s' is not running (status: %s)", containerName, cont.Status)
+	}
+
+	// Detect clipboard content type and extract content
+	clipboardType, localPath, err := extractClipboardContent()
+	if err != nil {
+		return fmt.Errorf("failed to extract clipboard: %w", err)
+	}
+	defer os.Remove(localPath) // Clean up temp file
+
+	// Determine destination filename
+	var destFilename string
+	if customName != "" {
+		destFilename = fmt.Sprintf("clipboard-%s.%s", customName, clipboardType)
+	} else {
+		destFilename = fmt.Sprintf("clipboard.%s", clipboardType)
+	}
+	destPath := fmt.Sprintf("/tmp/claude-clipboard/%s", destFilename)
+
+	// Ensure directory exists in container
+	if err := f.ContainerMgr.ExecContainer(ctx, containerName, []string{"mkdir", "-p", "/tmp/claude-clipboard"}); err != nil {
+		return fmt.Errorf("failed to create clipboard directory: %w", err)
+	}
+
+	// If using default name, remove old default files
+	if customName == "" {
+		// Remove both default files since we're replacing with new one
+		f.ContainerMgr.ExecContainer(ctx, containerName, []string{"rm", "-f", "/tmp/claude-clipboard/clipboard.png"})
+		f.ContainerMgr.ExecContainer(ctx, containerName, []string{"rm", "-f", "/tmp/claude-clipboard/clipboard.txt"})
+	}
+
+	// Read local file content
+	content, err := os.ReadFile(localPath)
+	if err != nil {
+		return fmt.Errorf("failed to read clipboard content: %w", err)
+	}
+
+	// Transfer content to container
+	if err := f.ContainerMgr.ExecContainerWithInput(ctx, containerName, []string{"tee", destPath}, content); err != nil {
+		return fmt.Errorf("failed to paste to container: %w", err)
+	}
+
+	color.Printf("{green}✓{reset} Pasted to %s\n", destPath)
+	return nil
 }
 
 // formatDuration formats a duration in a human-readable way

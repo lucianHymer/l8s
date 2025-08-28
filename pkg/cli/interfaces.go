@@ -15,6 +15,7 @@ type ContainerManager interface {
 	StopContainer(ctx context.Context, name string) error
 	GetContainerInfo(ctx context.Context, name string) (*container.Container, error)
 	ExecContainer(ctx context.Context, name string, cmd []string) error
+	ExecContainerWithInput(ctx context.Context, name string, cmd []string, input []byte) error
 	SSHIntoContainer(ctx context.Context, name string) error
 	BuildImage(ctx context.Context, containerfile string) error
 	RebuildContainer(ctx context.Context, name string) error

@@ -403,6 +403,32 @@ func (f *LazyCommandFactory) RebuildCmd() *cobra.Command {
 	return cmd
 }
 
+// PasteCmd returns the paste command with lazy initialization
+func (f *LazyCommandFactory) PasteCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "paste <container> [name]",
+		Short: "Paste clipboard content to container",
+		Long: `Paste clipboard content (image or text) from your local machine to a container.
+Content is saved to /tmp/claude-clipboard/ in the container.
+
+Without a custom name, files are saved as clipboard.png or clipboard.txt (replacing any existing default files).
+With a custom name, files are saved as clipboard-<name>.png or clipboard-<name>.txt (preserving existing files).`,
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := f.ensureInitialized(); err != nil {
+				return err
+			}
+			origFactory := &CommandFactory{
+				Config:       f.Config,
+				ContainerMgr: f.ContainerMgr,
+				GitClient:    f.GitClient,
+				SSHClient:    f.SSHClient,
+			}
+			return origFactory.runPaste(cmd, args)
+		},
+	}
+}
+
 // ConnectionCmd returns the connection command with subcommands
 func (f *LazyCommandFactory) ConnectionCmd() *cobra.Command {
 	cmd := &cobra.Command{

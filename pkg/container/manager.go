@@ -253,6 +253,12 @@ func (m *Manager) ExecContainer(ctx context.Context, name string, cmd []string) 
 	return m.client.ExecContainer(ctx, containerName, cmd)
 }
 
+// ExecContainerWithInput executes a command in a container with stdin input
+func (m *Manager) ExecContainerWithInput(ctx context.Context, name string, cmd []string, input []byte) error {
+	containerName := m.config.ContainerPrefix + "-" + name
+	return m.client.ExecContainerWithInput(ctx, containerName, cmd, string(input))
+}
+
 // setupSSH sets up SSH access in the container
 func (m *Manager) setupSSH(ctx context.Context, containerName, publicKey string) error {
 	m.logger.Debug("setting up SSH",

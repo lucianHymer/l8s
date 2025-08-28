@@ -65,6 +65,11 @@ func (m *MockContainerManagerWithGit) ExecContainer(ctx context.Context, name st
 	return args.Error(0)
 }
 
+func (m *MockContainerManagerWithGit) ExecContainerWithInput(ctx context.Context, name string, command []string, input []byte) error {
+	args := m.Called(ctx, name, command, input)
+	return args.Error(0)
+}
+
 func (m *MockContainerManagerWithGit) SSHIntoContainer(ctx context.Context, name string) error {
 	args := m.Called(ctx, name)
 	return args.Error(0)

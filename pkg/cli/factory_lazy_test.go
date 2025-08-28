@@ -116,6 +116,10 @@ func (m *MockContainerManager) ExecContainer(ctx context.Context, name string, c
 	return nil
 }
 
+func (m *MockContainerManager) ExecContainerWithInput(ctx context.Context, name string, command []string, input []byte) error {
+	return nil
+}
+
 func (m *MockContainerManager) SSHIntoContainer(ctx context.Context, name string) error {
 	return nil
 }

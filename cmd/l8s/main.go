@@ -45,6 +45,7 @@ accessible via SSH using key-based authentication.`,
 		factory.BuildCmd(),
 		factory.RemoteCmd(),
 		factory.ExecCmd(),
+		factory.PasteCmd(),
 		factory.ConnectionCmd(),
 	)
 
