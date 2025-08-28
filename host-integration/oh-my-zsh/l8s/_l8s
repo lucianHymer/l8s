@@ -6,17 +6,26 @@
 _l8s_get_containers() {
     local filter="$1"
     local containers=()
-    local cmd="l8s list"
+    local list_output
     
-    # Add filter if specified
+    # Get all containers
+    list_output="$(l8s list 2>/dev/null | tail -n +2)"
+    
+    # Filter based on state if requested
     case "$filter" in
-        running) cmd="$cmd --running" ;;
-        stopped) cmd="$cmd --stopped" ;;
+        running)
+            # Filter for running containers
+            containers=(${(f)"$(echo "$list_output" | grep -i running | awk '{print $1}' | sed 's/^dev-//')"})
+            ;;
+        stopped)
+            # Filter for stopped/created containers
+            containers=(${(f)"$(echo "$list_output" | grep -iE '(stopped|created|exited)' | awk '{print $1}' | sed 's/^dev-//')"})
+            ;;
+        *)
+            # All containers
+            containers=(${(f)"$(echo "$list_output" | awk '{print $1}' | sed 's/^dev-//')"})
+            ;;
     esac
-    
-    # Parse container names from l8s list output
-    # Skip header line and extract container names (removing dev- prefix)
-    containers=(${(f)"$(eval $cmd 2>/dev/null | tail -n +2 | awk '{print $1}' | sed 's/^dev-//')"})
     
     compadd -a containers
 }
@@ -37,22 +46,54 @@ _l8s() {
         'start:Start a stopped container'
         'stop:Stop a running container'
         'remove:Remove a container'
+        'rm:Remove a container (alias for remove)'
+        'rebuild:Rebuild a container with updated image'
         'info:Get detailed container information'
         'ssh:SSH into a container'
         'exec:Execute command in container'
+        'paste:Paste clipboard content to container'
         'remote:Manage git remotes for containers'
+        'connection:Manage SSH connections'
     )
+    
+    # Check if we're completing flags for a command
+    local cmd_idx=2
+    local cmd="${words[$cmd_idx]}"
+    
+    # Handle flag completion
+    if [[ "$PREFIX" == -* ]]; then
+        case "$cmd" in
+            create)
+                compadd -- --branch --dotfiles-path --help
+                return 0
+                ;;
+            remove|rm)
+                compadd -- --force -f --keep-volumes --help
+                return 0
+                ;;
+            rebuild)
+                compadd -- --build --skip-build --help
+                return 0
+                ;;
+            connection)
+                if [[ "${words[3]}" == "switch" ]]; then
+                    compadd -- --dry-run --help
+                    return 0
+                fi
+                ;;
+            *)
+                compadd -- --help
+                return 0
+                ;;
+        esac
+    fi
     
     # Handle different completion positions
     case $CURRENT in
         2)
-            # Complete commands or --help
+            # Complete commands
             if [[ "$words[1]" == "l8s" ]]; then
-                if [[ "$PREFIX" == --* ]]; then
-                    compadd -- --help
-                else
-                    compadd ${commands%%:*}
-                fi
+                compadd ${commands%%:*}
             fi
             ;;
             
@@ -64,12 +105,12 @@ _l8s() {
                     _l8s_get_containers "stopped"
                     ;;
                     
-                stop|exec)
+                stop|exec|paste)
                     # Only show running containers
                     _l8s_get_containers "running"
                     ;;
                     
-                remove|info|ssh)
+                remove|rm|info|ssh|rebuild)
                     # Show all containers
                     _l8s_get_containers
                     ;;
@@ -77,6 +118,11 @@ _l8s() {
                 remote)
                     # Show subcommands
                     compadd add remove
+                    ;;
+                    
+                connection)
+                    # Show connection subcommands
+                    compadd list show switch
                     ;;
                     
                 create)
@@ -96,9 +142,26 @@ _l8s() {
                     fi
                     ;;
                     
+                connection)
+                    # After connection subcommand
+                    case "${words[3]}" in
+                        show|switch)
+                            # Complete connection names (we'd need to implement _l8s_get_connections)
+                            _message 'connection name'
+                            ;;
+                    esac
+                    ;;
+                    
                 create)
-                    # Second arg is git URL
-                    _message 'git repository URL'
+                    # Second arg is git URL (unless flag is present)
+                    if [[ "${words[3]}" != -* ]]; then
+                        _message 'git repository URL'
+                    fi
+                    ;;
+                    
+                paste)
+                    # Optional name for clipboard file
+                    _message 'clipboard name (optional)'
                     ;;
                     
                 exec)
@@ -110,12 +173,18 @@ _l8s() {
             esac
             ;;
             
-        5)
-            # Handle remaining cases
+        *)
+            # Handle remaining arguments
             case "${words[2]}" in
                 create)
-                    # Third arg is optional branch
-                    _message 'branch name (optional)'
+                    # Third arg is optional branch (if not a flag)
+                    if [[ $CURRENT -eq 5 && "${words[4]}" != -* ]]; then
+                        _message 'branch name (optional)'
+                    fi
+                    ;;
+                exec)
+                    # Additional arguments for exec command
+                    _message 'command arguments'
                     ;;
             esac
             ;;

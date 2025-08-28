@@ -12,26 +12,12 @@ setup_test_env
 mock_l8s_filtered() {
     case "$1" in
         "list"|"ls")
-            case "$2" in
-                "--running")
-                    echo "NAME              STATUS      SSH_PORT    GIT_REMOTE                                     CREATED"
-                    echo "dev-myproject     Running     2200        git@github.com:user/myproject.git            2024-01-15"
-                    echo "dev-webapp        Running     2201        git@github.com:user/webapp.git               2024-01-14"
-                    echo "dev-cli-tool      Running     2203        git@github.com:user/cli-tool.git            2024-01-12"
-                    ;;
-                "--stopped")
-                    echo "NAME              STATUS      SSH_PORT    GIT_REMOTE                                     CREATED"
-                    echo "dev-api           Stopped     2202        git@github.com:user/api.git                 2024-01-13"
-                    ;;
-                *)
-                    # Default: all containers
-                    echo "NAME              STATUS      SSH_PORT    GIT_REMOTE                                     CREATED"
-                    echo "dev-myproject     Running     2200        git@github.com:user/myproject.git            2024-01-15"
-                    echo "dev-webapp        Running     2201        git@github.com:user/webapp.git               2024-01-14"
-                    echo "dev-api           Stopped     2202        git@github.com:user/api.git                 2024-01-13"
-                    echo "dev-cli-tool      Running     2203        git@github.com:user/cli-tool.git            2024-01-12"
-                    ;;
-            esac
+            # Always return all containers - the completion function does the filtering
+            echo "NAME              STATUS      SSH_PORT    GIT_REMOTE                                     CREATED"
+            echo "dev-myproject     Running     2200        git@github.com:user/myproject.git            2024-01-15"
+            echo "dev-webapp        Running     2201        git@github.com:user/webapp.git               2024-01-14"
+            echo "dev-api           Stopped     2202        git@github.com:user/api.git                 2024-01-13"
+            echo "dev-cli-tool      Running     2203        git@github.com:user/cli-tool.git            2024-01-12"
             ;;
     esac
 }
@@ -60,8 +46,14 @@ assert_contains "$completions" "myproject" "Should show running container 'mypro
 assert_contains "$completions" "webapp" "Should show running container 'webapp' for exec"
 assert_not_contains "$completions" "api" "Should NOT show stopped container 'api' for exec"
 
-# Test 4: Remove, info, and ssh should show all containers
-for cmd in "remove" "info" "ssh"; do
+# Test 3b: Paste command should only show running containers
+completions=$(get_completions "l8s paste ")
+assert_contains "$completions" "myproject" "Should show running container 'myproject' for paste"
+assert_contains "$completions" "webapp" "Should show running container 'webapp' for paste"
+assert_not_contains "$completions" "api" "Should NOT show stopped container 'api' for paste"
+
+# Test 4: Remove, rm, rebuild, info, and ssh should show all containers
+for cmd in "remove" "rm" "rebuild" "info" "ssh"; do
     completions=$(get_completions "l8s $cmd ")
     assert_contains "$completions" "myproject" "Should show all containers for '$cmd' command"
     assert_contains "$completions" "webapp" "Should show all containers for '$cmd' command"

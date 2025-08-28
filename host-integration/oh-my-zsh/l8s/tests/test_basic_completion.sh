@@ -20,10 +20,14 @@ assert_contains "$completions" "ls" "Should complete 'ls' alias"
 assert_contains "$completions" "start" "Should complete 'start' command"
 assert_contains "$completions" "stop" "Should complete 'stop' command"
 assert_contains "$completions" "remove" "Should complete 'remove' command"
+assert_contains "$completions" "rm" "Should complete 'rm' alias for remove"
+assert_contains "$completions" "rebuild" "Should complete 'rebuild' command"
 assert_contains "$completions" "info" "Should complete 'info' command"
 assert_contains "$completions" "ssh" "Should complete 'ssh' command"
 assert_contains "$completions" "exec" "Should complete 'exec' command"
+assert_contains "$completions" "paste" "Should complete 'paste' command"
 assert_contains "$completions" "remote" "Should complete 'remote' command"
+assert_contains "$completions" "connection" "Should complete 'connection' command"
 
 # Test 2: Partial command completion
 completions=$(get_completions "l8s in")
@@ -33,11 +37,19 @@ assert_contains "$completions" "info" "Should complete 'in' to 'info'"
 completions=$(get_completions "l8s re")
 assert_contains "$completions" "remove" "Should complete 're' to 'remove'"
 assert_contains "$completions" "remote" "Should complete 're' to 'remote'"
+assert_contains "$completions" "rebuild" "Should complete 're' to 'rebuild'"
 
 completions=$(get_completions "l8s s")
 assert_contains "$completions" "start" "Should complete 's' to 'start'"
 assert_contains "$completions" "stop" "Should complete 's' to 'stop'"
 assert_contains "$completions" "ssh" "Should complete 's' to 'ssh'"
+
+completions=$(get_completions "l8s p")
+assert_contains "$completions" "paste" "Should complete 'p' to 'paste'"
+
+completions=$(get_completions "l8s c")
+assert_contains "$completions" "create" "Should complete 'c' to 'create'"
+assert_contains "$completions" "connection" "Should complete 'c' to 'connection'"
 
 # Test 3: No completion after complete command without space
 # Note: This test might fail because zsh completion system might still show commands

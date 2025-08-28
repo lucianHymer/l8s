@@ -40,7 +40,18 @@ assert_contains "$completions" "webapp" "Should complete containers after 'remot
 completions=$(get_completions "l8s remote add myproject ")
 assert_equals "$completions" "" "Should not complete after container name"
 
-# Test 5: Create command special arguments
+# Test 5: Complete connection subcommands
+completions=$(get_completions "l8s connection ")
+assert_contains "$completions" "list" "Should complete 'list' subcommand for connection"
+assert_contains "$completions" "show" "Should complete 'show' subcommand for connection"
+assert_contains "$completions" "switch" "Should complete 'switch' subcommand for connection"
+
+# Test 6: Connection subcommand partial completion
+completions=$(get_completions "l8s connection s")
+assert_contains "$completions" "show" "Should complete 's' to 'show'"
+assert_contains "$completions" "switch" "Should complete 's' to 'switch'"
+
+# Test 7: Create command special arguments
 completions=$(get_completions "l8s create myproject ")
 assert_equals "$completions" "" "Should not auto-complete git URLs (user must type)"
 

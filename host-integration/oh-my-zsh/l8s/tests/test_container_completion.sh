@@ -29,7 +29,11 @@ completions=$(get_completions "l8s ssh cli")
 assert_contains "$completions" "cli-tool" "Should complete 'cli' to 'cli-tool'"
 
 # Test 3: Container completion for different commands
-for cmd in "start" "stop" "remove" "info" "exec"; do
+# Note: 'start' only shows stopped containers, others show running or all
+completions=$(get_completions "l8s start ")
+assert_contains "$completions" "api" "Should complete stopped containers for 'start' command"
+
+for cmd in "stop" "remove" "info" "exec"; do
     completions=$(get_completions "l8s $cmd ")
     assert_contains "$completions" "myproject" "Should complete containers for '$cmd' command"
 done
