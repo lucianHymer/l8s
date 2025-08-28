@@ -21,6 +21,7 @@
     "deny": []
   },
   "enabledMcpjsonServers": [
-    "chronicler"
-  ]
+    "mim"
+  ],
+  "enableAllProjectMcpServers": true
 }
