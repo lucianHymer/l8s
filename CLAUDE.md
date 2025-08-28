@@ -114,7 +114,7 @@ The system uses SSH ControlMaster for connection multiplexing. Check `~/.ssh/` f
 ### Working with Embedded Dotfiles
 Dotfiles in `pkg/embed/dotfiles/` are embedded in the binary and deployed to new containers. Update these files to change default container configurations.
 
-## 📚 Chronicler Knowledge System
+## 📚 Mim Knowledge System
 
 @.claude/knowledge/INSTRUCTIONS.md
 
