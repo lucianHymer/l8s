@@ -115,7 +115,8 @@ func (ca *CA) WriteKnownHostsEntry(knownHostsPath, remoteHost string) error {
 
 	// Create known_hosts entry for CA
 	// This tells SSH to trust any host key signed by this CA for l8s containers
-	entry := fmt.Sprintf("@cert-authority dev-*,%s:* %s\n", remoteHost, pubKey)
+	// Use bracketed format for non-standard ports (SSH requires [host]:port format)
+	entry := fmt.Sprintf("@cert-authority dev-*,[%s]:* %s\n", remoteHost, pubKey)
 
 	// Ensure directory exists
 	dir := filepath.Dir(knownHostsPath)

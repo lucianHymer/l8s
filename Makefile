@@ -153,7 +153,7 @@ zsh-plugin: ## Install l8s ZSH completion plugin on host machine
 	fi
 	@echo "📁 Copying plugin to Oh My Zsh custom plugins..."
 	@mkdir -p $$HOME/.oh-my-zsh/custom/plugins
-	@cp -r dotfiles/.oh-my-zsh/custom/plugins/l8s $$HOME/.oh-my-zsh/custom/plugins/
+	@cp -r pkg/embed/dotfiles/.oh-my-zsh/custom/plugins/l8s $$HOME/.oh-my-zsh/custom/plugins/
 	@echo "✓ Plugin copied"
 	@echo "📝 Updating .zshrc..."
 	@if ! grep -q "# l8s plugin auto-load" $$HOME/.zshrc; then \
