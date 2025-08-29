@@ -14,6 +14,7 @@ import (
 	"github.com/juju/ansiterm"
 	"l8s/pkg/color"
 	"l8s/pkg/config"
+	"l8s/pkg/ssh"
 	"github.com/spf13/cobra"
 )
 
@@ -488,6 +489,7 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 
 	// Create config with defaults
 	cfg := config.DefaultConfig()
+	configDir := filepath.Dir(config.GetConfigPath())
 	
 	// Initialize the default connection
 	connCfg := config.ConnectionConfig{}
@@ -617,6 +619,35 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 	
+	// Generate SSH CA
+	fmt.Println("\n=== SSH Certificate Authority Setup ===")
+	fmt.Println("Generating SSH CA for secure container connections...")
+	
+	ca, err := ssh.NewCA(configDir)
+	if err != nil {
+		return fmt.Errorf("failed to initialize CA: %w", err)
+	}
+	
+	if !ca.Exists() {
+		if err := ca.Generate(); err != nil {
+			return fmt.Errorf("failed to generate CA: %w", err)
+		}
+		color.Printf("{green}✓{reset} Generated SSH CA keypair\n")
+	} else {
+		color.Printf("{yellow}!{reset} Using existing SSH CA\n")
+	}
+	
+	// Store CA paths in config
+	cfg.CAPrivateKeyPath = ca.PrivateKeyPath
+	cfg.CAPublicKeyPath = ca.PublicKeyPath
+	cfg.KnownHostsPath = filepath.Join(configDir, "known_hosts")
+	
+	// Create known_hosts file with CA entry
+	if err := ca.WriteKnownHostsEntry(cfg.KnownHostsPath, connCfg.Address); err != nil {
+		return fmt.Errorf("failed to create known_hosts: %w", err)
+	}
+	color.Printf("{green}✓{reset} Created CA trust configuration\n")
+	
 	// Save configuration
 	configPath := config.GetConfigPath()
 	fmt.Printf("\nSaving configuration to %s...\n", configPath)
@@ -627,6 +658,7 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 	
 	fmt.Println("\n=== Configuration Complete ===")
 	fmt.Printf("Configuration saved to: %s\n", configPath)
+	color.Printf("{green}✓{reset} SSH CA configured for secure connections\n")
 	fmt.Println("\nNext steps:")
 	fmt.Printf("1. Ensure Podman is running on %s\n", connCfg.Address)
 	if cfg.RemoteUser != "root" {

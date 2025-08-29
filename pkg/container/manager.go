@@ -304,7 +304,121 @@ func (m *Manager) setupSSH(ctx context.Context, containerName, publicKey string)
 		return fmt.Errorf("failed to set ownership: %w", err)
 	}
 
+	// Set up SSH host certificates if CA is configured
+	if err := m.setupSSHCertificates(ctx, containerName); err != nil {
+		// Log warning but don't fail container creation
+		m.logger.Warn("failed to setup SSH certificates",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
+	}
+
 	m.logger.Debug("SSH setup completed",
+		logging.WithField("container", containerName))
+
+	return nil
+}
+
+// setupSSHCertificates generates and signs SSH host keys with the CA
+func (m *Manager) setupSSHCertificates(ctx context.Context, containerName string) error {
+	// Check if CA is configured
+	if m.config.CAPrivateKeyPath == "" || m.config.CAPublicKeyPath == "" {
+		m.logger.Debug("SSH CA not configured, skipping certificate setup",
+			logging.WithField("container", containerName))
+		return nil
+	}
+
+	// Initialize CA
+	ca := &ssh.CA{
+		PrivateKeyPath: m.config.CAPrivateKeyPath,
+		PublicKeyPath:  m.config.CAPublicKeyPath,
+	}
+
+	if !ca.Exists() {
+		return fmt.Errorf("SSH CA not found at %s", m.config.CAPrivateKeyPath)
+	}
+
+	// Generate temporary host key locally
+	tempDir, err := os.MkdirTemp("", "l8s-hostkey-")
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	hostKeyPath := filepath.Join(tempDir, "ssh_host_ed25519_key")
+	
+	// Generate host key
+	genCmd := exec.Command("ssh-keygen",
+		"-t", "ed25519",
+		"-f", hostKeyPath,
+		"-N", "",
+		"-C", containerName)
+	
+	if output, err := genCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to generate host key: %w\nOutput: %s", err, output)
+	}
+
+	// Extract container name without prefix for signing
+	shortName := strings.TrimPrefix(containerName, m.config.ContainerPrefix+"-")
+	
+	// Get remote host from config
+	remoteHost := m.config.RemoteHost
+
+	// Sign the host key with CA
+	if err := ca.SignHostKey(hostKeyPath, shortName, remoteHost); err != nil {
+		return fmt.Errorf("failed to sign host key: %w", err)
+	}
+
+	// Read host key and certificate
+	hostKeyData, err := os.ReadFile(hostKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to read host key: %w", err)
+	}
+
+	certData, err := os.ReadFile(hostKeyPath + "-cert.pub")
+	if err != nil {
+		return fmt.Errorf("failed to read certificate: %w", err)
+	}
+
+	// Copy host key to container
+	hostKeyDest := "/etc/ssh/ssh_host_ed25519_key"
+	writeKeyCmd := []string{"tee", hostKeyDest}
+	if err := m.client.ExecContainerWithInput(ctx, containerName, writeKeyCmd, string(hostKeyData)); err != nil {
+		return fmt.Errorf("failed to write host key: %w", err)
+	}
+
+	// Set host key permissions
+	if err := m.client.ExecContainer(ctx, containerName, []string{"chmod", "600", hostKeyDest}); err != nil {
+		return fmt.Errorf("failed to set host key permissions: %w", err)
+	}
+
+	// Copy certificate to container
+	certDest := "/etc/ssh/ssh_host_ed25519_key-cert.pub"
+	writeCertCmd := []string{"tee", certDest}
+	if err := m.client.ExecContainerWithInput(ctx, containerName, writeCertCmd, string(certData)); err != nil {
+		return fmt.Errorf("failed to write certificate: %w", err)
+	}
+
+	// Update sshd_config to use the certificate
+	sshdConfig := `
+# Added by l8s for SSH CA support
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostCertificate /etc/ssh/ssh_host_ed25519_key-cert.pub
+`
+	appendCmd := []string{"sh", "-c", "echo '" + sshdConfig + "' >> /etc/ssh/sshd_config"}
+	if err := m.client.ExecContainer(ctx, containerName, appendCmd); err != nil {
+		return fmt.Errorf("failed to update sshd_config: %w", err)
+	}
+
+	// Restart SSH daemon to apply changes
+	restartCmd := []string{"pkill", "-HUP", "sshd"}
+	if err := m.client.ExecContainer(ctx, containerName, restartCmd); err != nil {
+		// Log warning but don't fail - sshd might restart automatically
+		m.logger.Warn("failed to restart sshd",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
+	}
+
+	m.logger.Info("SSH certificates configured",
 		logging.WithField("container", containerName))
 
 	return nil

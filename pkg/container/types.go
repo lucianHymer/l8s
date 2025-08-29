@@ -41,11 +41,15 @@ type PodmanClient interface {
 
 // Config holds configuration for the container manager
 type Config struct {
-	SSHPortStart    int
-	BaseImage       string
-	ContainerPrefix string
-	ContainerUser   string
-	DotfilesPath    string
+	SSHPortStart     int
+	BaseImage        string
+	ContainerPrefix  string
+	ContainerUser    string
+	DotfilesPath     string
+	CAPrivateKeyPath string
+	CAPublicKeyPath  string
+	KnownHostsPath   string
+	RemoteHost       string
 }
 
 // Labels used for container metadata

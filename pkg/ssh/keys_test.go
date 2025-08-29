@@ -192,7 +192,7 @@ func TestSSHConfigEntry(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entry := GenerateSSHConfigEntry(tt.containerName, tt.sshPort, tt.containerUser, "dev", tt.remoteHost)
+			entry := GenerateSSHConfigEntry(tt.containerName, tt.sshPort, tt.containerUser, "dev", tt.remoteHost, "")
 			assert.Equal(t, tt.want+"\n", entry)
 		})
 	}
@@ -207,7 +207,7 @@ func TestManageSSHConfig(t *testing.T) {
 		
 		configPath := filepath.Join(sshDir, "config")
 		
-		entry := GenerateSSHConfigEntry("dev-myproject", 2200, "dev", "dev", "localhost")
+		entry := GenerateSSHConfigEntry("dev-myproject", 2200, "dev", "dev", "localhost", "")
 		err = AddSSHConfigEntry(configPath, entry)
 		require.NoError(t, err)
 		
@@ -240,7 +240,7 @@ func TestManageSSHConfig(t *testing.T) {
 		err = os.WriteFile(configPath, []byte(existingConfig), 0600)
 		require.NoError(t, err)
 		
-		entry := GenerateSSHConfigEntry("dev-myproject", 2200, "dev", "dev", "localhost")
+		entry := GenerateSSHConfigEntry("dev-myproject", 2200, "dev", "dev", "localhost", "")
 		err = AddSSHConfigEntry(configPath, entry)
 		require.NoError(t, err)
 		

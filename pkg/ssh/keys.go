@@ -67,13 +67,28 @@ func GenerateAuthorizedKeys(publicKey string) string {
 }
 
 // GenerateSSHConfigEntry generates an SSH config entry for a container
-func GenerateSSHConfigEntry(containerName string, sshPort int, containerUser, prefix, remoteHost string) string {
+func GenerateSSHConfigEntry(containerName string, sshPort int, containerUser, prefix, remoteHost string, knownHostsPath string) string {
 	// Remove prefix from container name for the host alias
 	hostAlias := containerName
 	if strings.HasPrefix(containerName, prefix+"-") {
 		hostAlias = containerName
 	}
 
+	// If knownHostsPath is provided, use strict checking with CA
+	if knownHostsPath != "" {
+		return fmt.Sprintf(`Host %s
+    HostName %s
+    Port %d
+    User %s
+    StrictHostKeyChecking yes
+    UserKnownHostsFile %s
+    ControlMaster auto
+    ControlPath ~/.ssh/control-%%r@%%h:%%p
+    ControlPersist 10m
+`, hostAlias, remoteHost, sshPort, containerUser, knownHostsPath)
+	}
+
+	// Fallback to insecure mode if no CA configured
 	return fmt.Sprintf(`Host %s
     HostName %s
     Port %d
@@ -297,6 +312,7 @@ func AddSSHConfig(name, hostname string, port int, user string) error {
 		user, 
 		"dev",
 		address, // Use connection address
+		cfg.KnownHostsPath, // Pass known hosts path for CA trust
 	)
 	return AddSSHConfigEntry(sshConfigPath, entry)
 }

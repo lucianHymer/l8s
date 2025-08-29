@@ -30,11 +30,22 @@ func NewCommandFactory() (*CommandFactory, error) {
 		return nil, fmt.Errorf("failed to create podman client: %w", err)
 	}
 
+	// Get the remote host from active connection
+	remoteHost := ""
+	if activeAddr, err := cfg.GetActiveAddress(); err == nil {
+		remoteHost = activeAddr
+	}
+	
 	containerConfig := container.Config{
-		SSHPortStart:    cfg.SSHPortStart,
-		BaseImage:       cfg.BaseImage,
-		ContainerPrefix: cfg.ContainerPrefix,
-		ContainerUser:   cfg.ContainerUser,
+		SSHPortStart:     cfg.SSHPortStart,
+		BaseImage:        cfg.BaseImage,
+		ContainerPrefix:  cfg.ContainerPrefix,
+		ContainerUser:    cfg.ContainerUser,
+		DotfilesPath:     cfg.DotfilesPath,
+		CAPrivateKeyPath: cfg.CAPrivateKeyPath,
+		CAPublicKeyPath:  cfg.CAPublicKeyPath,
+		KnownHostsPath:   cfg.KnownHostsPath,
+		RemoteHost:       remoteHost,
 	}
 
 	return &CommandFactory{

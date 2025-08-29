@@ -29,6 +29,11 @@ type Config struct {
 	RemoteSocket string `yaml:"remote_socket,omitempty"`
 	SSHKeyPath   string `yaml:"ssh_key_path,omitempty"`
 	
+	// SSH CA settings
+	CAPrivateKeyPath string `yaml:"ca_private_key_path,omitempty"`
+	CAPublicKeyPath  string `yaml:"ca_public_key_path,omitempty"`
+	KnownHostsPath   string `yaml:"known_hosts_path,omitempty"`
+	
 	// Shared settings
 	SSHPortStart    int    `yaml:"ssh_port_start"`
 	BaseImage       string `yaml:"base_image"`
@@ -158,6 +163,9 @@ func Load(path string) (*Config, error) {
 	config.SSHPublicKey = expandPath(config.SSHPublicKey)
 	config.DotfilesPath = expandPath(config.DotfilesPath)
 	config.SSHKeyPath = expandPath(config.SSHKeyPath)
+	config.CAPrivateKeyPath = expandPath(config.CAPrivateKeyPath)
+	config.CAPublicKeyPath = expandPath(config.CAPublicKeyPath)
+	config.KnownHostsPath = expandPath(config.KnownHostsPath)
 	
 	// Set defaults
 	if config.RemoteSocket == "" {
