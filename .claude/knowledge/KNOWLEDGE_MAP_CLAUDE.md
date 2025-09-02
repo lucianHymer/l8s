@@ -5,6 +5,7 @@
 - @architecture/command_factory.md - Dual factory pattern for fast CLI startup
 - @architecture/ssh_container_operations.md - Remote-only container management via SSH
 - @architecture/zsh_completion.md - Sophisticated tab completion architecture
+- @architecture/ssh_certificate_timing.md - Pre-startup certificate configuration strategy
 
 ## 📐 Patterns
 
@@ -14,6 +15,11 @@
 ## ✨ Features
 
 - @features/paste_command.md - Clipboard sharing between host and containers
+- @features/ssh_certificate_authority.md - Secure container connections with CA
+
+## 🔒 Security
+
+- @security/ssh_certificate_authority.md - Complete CA implementation for MITM protection
 
 ## 🧪 Testing
 
