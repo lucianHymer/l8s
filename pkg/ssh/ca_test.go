@@ -200,8 +200,8 @@ func TestCAWriteKnownHostsEntry(t *testing.T) {
 		t.Error("known_hosts does not contain dev-* pattern")
 	}
 	
-	// Check for remote host
-	if !strings.Contains(content, "test.example.com:*") {
+	// Check for remote host (bracketed format for non-standard ports)
+	if !strings.Contains(content, "[test.example.com]:*") {
 		t.Error("known_hosts does not contain remote host pattern")
 	}
 	

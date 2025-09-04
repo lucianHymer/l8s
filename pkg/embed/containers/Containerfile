@@ -88,7 +88,13 @@ RUN dnf update -y && \
         tree \
         golang \
         rust \
-        cargo && \
+        cargo \
+        dnf5-plugins && \
+    dnf clean all
+
+# Install GitHub CLI from official repository
+RUN dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo && \
+    dnf install -y gh --repo gh-cli && \
     dnf clean all
 
 # ============================================================================
