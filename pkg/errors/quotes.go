@@ -7,7 +7,7 @@ import (
 )
 
 var lebowskiQuotes = []string{
-	"Smokey, this isn't 'Nam. This is bowling. There are rules. Mark it zero!",
+	"Smokey, this isn't 'Nam. This is bowling. There are rules.",
 	"You're out of your element, Donny!",
 	"This aggression will not stand, man!",
 	"Obviously you're not a golfer.",
