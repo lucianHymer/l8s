@@ -170,7 +170,8 @@ func TestSSHConfigEntry(t *testing.T) {
     UserKnownHostsFile /dev/null
     ControlMaster auto
     ControlPath ~/.ssh/control-%r@%h:%p
-    ControlPersist 10m`,
+    ControlPersist 10m
+    RemoteCommand cd /workspace/project && exec $SHELL -l`,
 		},
 		{
 			name:          "custom user",
@@ -186,7 +187,8 @@ func TestSSHConfigEntry(t *testing.T) {
     UserKnownHostsFile /dev/null
     ControlMaster auto
     ControlPath ~/.ssh/control-%r@%h:%p
-    ControlPersist 10m`,
+    ControlPersist 10m
+    RemoteCommand cd /workspace/project && exec $SHELL -l`,
 		},
 	}
 

@@ -20,8 +20,8 @@
     ],
     "deny": []
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "mim"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }
