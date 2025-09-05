@@ -101,6 +101,21 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to push initial code: %w", err)
 	}
 
+	// Replicate origin remote to container if it exists in host repo
+	// This enables GitHub CLI (gh) to work automatically
+	hostRemotes, err := f.GitClient.ListRemotes(".")
+	if err == nil {
+		if originURL, exists := hostRemotes["origin"]; exists {
+			color.Printf("{cyan}→{reset} Adding origin remote to container for GitHub CLI support...\n")
+			addRemoteCmd := []string{"su", "-", f.Config.ContainerUser, "-c",
+				fmt.Sprintf("cd /workspace/project && git remote add origin %s", originURL)}
+			if err := f.ContainerMgr.ExecContainer(ctx, shortName, addRemoteCmd); err != nil {
+				// Non-fatal - gh CLI just won't work automatically
+				color.Printf("{yellow}!{reset} Could not add origin remote to container (gh CLI may require -R flag)\n")
+			}
+		}
+	}
+
 	// Checkout the branch in the container so it matches what we pushed
 	color.Printf("{cyan}→{reset} Checking out {bold}%s{reset} branch in container...\n", branch)
 	checkoutCmd := []string{"su", "-", f.Config.ContainerUser, "-c",

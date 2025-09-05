@@ -175,7 +175,10 @@ func TestCreateCommandNewFlow(t *testing.T) {
 				// Push initial code
 				gc.On("PushBranch", ".", "main", mock.AnythingOfType("string"), false).Return(nil)
 				
-				// Exec to checkout branch
+				// List remotes to check for origin
+				gc.On("ListRemotes", ".").Return(map[string]string{"origin": "https://github.com/user/repo.git"}, nil)
+				
+				// Exec to add origin remote and checkout branch
 				cm.On("ExecContainer", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
 			},
 			wantErr: false,
@@ -207,7 +210,10 @@ func TestCreateCommandNewFlow(t *testing.T) {
 				// Push specified branch
 				gc.On("PushBranch", ".", "feature", mock.AnythingOfType("string"), false).Return(nil)
 				
-				// Exec to checkout branch
+				// List remotes to check for origin
+				gc.On("ListRemotes", ".").Return(map[string]string{"origin": "https://github.com/user/repo.git"}, nil)
+				
+				// Exec to add origin remote and checkout branch
 				cm.On("ExecContainer", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
 			},
 			wantErr: false,
