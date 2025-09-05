@@ -836,18 +836,28 @@ func (m *Manager) RebuildContainer(ctx context.Context, name string) error {
 		return fmt.Errorf("failed to create container: %w", err)
 	}
 	
-	// Step 5: Start the new container
+	// Step 5: Set up SSH certificates before starting
+	// SSH certificates are in /etc/ssh which is NOT a persistent volume,
+	// so we need to regenerate them after recreating the container
+	if err := m.setupSSHCertificatesBeforeStart(ctx, containerName); err != nil {
+		// Log warning but don't fail container rebuild
+		m.logger.Warn("failed to setup SSH certificates",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
+	}
+	
+	// Step 6: Start the new container
 	if err := m.client.StartContainer(ctx, containerName); err != nil {
 		// Try to clean up if start fails
 		_ = m.client.RemoveContainer(ctx, containerName, false)
 		return fmt.Errorf("failed to start container: %w", err)
 	}
 	
-	// Step 6: Wait for container to be ready
+	// Step 7: Wait for container to be ready
 	// Simple sleep for now - could be enhanced with actual SSH check
 	time.Sleep(2 * time.Second)
 	
-	// Step 7: Fix volume ownership
+	// Step 8: Fix volume ownership
 	// The volumes persist but may have incorrect ownership after remount
 	if err := m.fixVolumeOwnership(ctx, containerName); err != nil {
 		m.logger.Warn("failed to fix volume ownership",
