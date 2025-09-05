@@ -366,3 +366,59 @@ func InitRepository(repoPath string, allowPush bool, defaultBranch string) error
 
 	return nil
 }
+
+// GetWorktreeRoot returns the root directory of the current git worktree
+// This handles both main worktrees and linked worktrees
+func GetWorktreeRoot() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("not in a git repository")
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// GetRepositoryName extracts the repository name from the git config or directory
+func GetRepositoryName(repoPath string) (string, error) {
+	// Try to get from origin remote first
+	remotes, err := ListRemotes(repoPath)
+	if err == nil {
+		if originURL, exists := remotes["origin"]; exists {
+			// Extract repo name from URL
+			// Handle various formats: https://github.com/user/repo.git, git@github.com:user/repo.git, etc.
+			repoName := extractRepoNameFromURL(originURL)
+			if repoName != "" {
+				return repoName, nil
+			}
+		}
+	}
+	
+	// Fall back to directory name
+	absPath, err := filepath.Abs(repoPath)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Base(absPath), nil
+}
+
+// extractRepoNameFromURL extracts repository name from various git URL formats
+func extractRepoNameFromURL(gitURL string) string {
+	// Remove .git suffix if present
+	gitURL = strings.TrimSuffix(gitURL, ".git")
+	
+	// Handle SSH format (git@github.com:user/repo)
+	if strings.Contains(gitURL, ":") && !strings.Contains(gitURL, "://") {
+		parts := strings.Split(gitURL, ":")
+		if len(parts) == 2 {
+			return filepath.Base(parts[1])
+		}
+	}
+	
+	// Handle HTTP(S) and other URL formats
+	if u, err := url.Parse(gitURL); err == nil && u.Path != "" {
+		return filepath.Base(u.Path)
+	}
+	
+	// Last resort: just take the last path component
+	return filepath.Base(gitURL)
+}

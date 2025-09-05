@@ -96,14 +96,15 @@ func (f *LazyCommandFactory) CreateCmd() *cobra.Command {
 	var branch string
 	
 	cmd := &cobra.Command{
-		Use:   "create <name>",
+		Use:   "create",
 		Short: "Create a new development container",
-		Long:  `Creates a new development container from the current git repository.
+		Long:  `Creates a new development container for the current git worktree.
 
+The container name is automatically generated from the repository name and worktree path.
 The container will be initialized with an empty git repository configured to receive pushes.
 The current branch (or specified branch) will be pushed to populate the container.
 A git remote will be added to your local repository for easy code synchronization.`,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -136,9 +137,9 @@ A git remote will be added to your local repository for easy code synchronizatio
 // SSHCmd returns the ssh command with lazy initialization
 func (f *LazyCommandFactory) SSHCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "ssh <name>",
-		Short: "SSH into a container",
-		Args:  cobra.ExactArgs(1),
+		Use:   "ssh",
+		Short: "SSH into the container for the current worktree",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -220,9 +221,9 @@ func (f *LazyCommandFactory) StopCmd() *cobra.Command {
 // RemoveCmd returns the remove command with lazy initialization
 func (f *LazyCommandFactory) RemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "remove <name>",
-		Short:   "Remove a container",
-		Args:    cobra.ExactArgs(1),
+		Use:     "remove",
+		Short:   "Remove the container for the current worktree",
+		Args:    cobra.NoArgs,
 		Aliases: []string{"rm"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
@@ -336,9 +337,9 @@ func (f *LazyCommandFactory) RemoteCmd() *cobra.Command {
 // ExecCmd returns the exec command with lazy initialization
 func (f *LazyCommandFactory) ExecCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "exec <name> <command> [args...]",
-		Short: "Execute command in container",
-		Args:  cobra.MinimumNArgs(2),
+		Use:   "exec <command> [args...]",
+		Short: "Execute command in the container for the current worktree",
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -377,13 +378,13 @@ You'll need:
 // RebuildCmd returns the rebuild command with lazy initialization
 func (f *LazyCommandFactory) RebuildCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "rebuild <name>",
-		Short: "Rebuild container with updated image while preserving data",
+		Use:   "rebuild",
+		Short: "Rebuild the container for the current worktree while preserving data",
 		Long: `Rebuild recreates a container with the latest base image while preserving:
 - All workspace and home directory data (volumes)
 - SSH port assignment
 - Container name and configuration`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -404,10 +405,40 @@ func (f *LazyCommandFactory) RebuildCmd() *cobra.Command {
 				GitClient:    f.GitClient,
 				SSHClient:    f.SSHClient,
 			}
-			return origFactory.HandleRebuild(args[0], build, skipBuild)
+			return origFactory.runRebuild(cmd, args)
 		},
 	}
 	
+	cmd.Flags().Bool("build", false, "Build image before rebuilding")
+	cmd.Flags().Bool("skip-build", false, "Skip build and use existing image")
+	
+	return cmd
+}
+
+// RebuildAllCmd returns the rebuild-all command with lazy initialization
+func (f *LazyCommandFactory) RebuildAllCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rebuild-all",
+		Short: "Rebuild all containers with updated image",
+		Long: `Rebuild all containers with the latest base image while preserving their data.
+		
+This is useful after updating the base image or when you want to refresh all containers.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := f.ensureInitialized(); err != nil {
+				return err
+			}
+			origFactory := &CommandFactory{
+				Config:       f.Config,
+				ContainerMgr: f.ContainerMgr,
+				GitClient:    f.GitClient,
+				SSHClient:    f.SSHClient,
+			}
+			return origFactory.runRebuildAll(cmd, args)
+		},
+	}
+	
+	cmd.Flags().Bool("force", false, "Skip confirmation prompt")
 	cmd.Flags().Bool("build", false, "Build image before rebuilding")
 	cmd.Flags().Bool("skip-build", false, "Skip build and use existing image")
 	
@@ -436,6 +467,78 @@ With a custom name, files are saved as clipboard-<name>.png or clipboard-<name>.
 				SSHClient:    f.SSHClient,
 			}
 			return origFactory.runPaste(cmd, args)
+		},
+	}
+}
+
+// PushCmd returns the push command with lazy initialization
+func (f *LazyCommandFactory) PushCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "push",
+		Short: "Push current branch to container (fast-forward only)",
+		Long: `Push the current git branch to the container for this worktree.
+		
+The push will fail if it would overwrite changes in the container (non-fast-forward).
+Use 'l8s pull' first if the container has diverged.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := f.ensureInitialized(); err != nil {
+				return err
+			}
+			origFactory := &CommandFactory{
+				Config:       f.Config,
+				ContainerMgr: f.ContainerMgr,
+				GitClient:    f.GitClient,
+				SSHClient:    f.SSHClient,
+			}
+			return origFactory.runPush(cmd, args)
+		},
+	}
+}
+
+// PullCmd returns the pull command with lazy initialization
+func (f *LazyCommandFactory) PullCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "pull",
+		Short: "Pull changes from container (fast-forward only)",
+		Long: `Pull changes from the container to your local worktree.
+		
+The pull will fail if it would overwrite local changes (non-fast-forward).
+Resolve conflicts manually if your local branch has diverged.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := f.ensureInitialized(); err != nil {
+				return err
+			}
+			origFactory := &CommandFactory{
+				Config:       f.Config,
+				ContainerMgr: f.ContainerMgr,
+				GitClient:    f.GitClient,
+				SSHClient:    f.SSHClient,
+			}
+			return origFactory.runPull(cmd, args)
+		},
+	}
+}
+
+// StatusCmd returns the status command with lazy initialization
+func (f *LazyCommandFactory) StatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Show status of container for current worktree",
+		Long:  `Display the status and information about the container associated with the current git worktree.`,
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := f.ensureInitialized(); err != nil {
+				return err
+			}
+			origFactory := &CommandFactory{
+				Config:       f.Config,
+				ContainerMgr: f.ContainerMgr,
+				GitClient:    f.GitClient,
+				SSHClient:    f.SSHClient,
+			}
+			return origFactory.runStatus(cmd, args)
 		},
 	}
 }

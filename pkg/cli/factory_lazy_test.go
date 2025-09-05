@@ -32,12 +32,12 @@ func TestLazyCommandFactory(t *testing.T) {
 		factory := NewLazyCommandFactory()
 		
 		createCmd := factory.CreateCmd()
-		assert.Equal(t, "create <name>", createCmd.Use)
+		assert.Equal(t, "create", createCmd.Use)
 		assert.Equal(t, "Create a new development container", createCmd.Short)
 		
 		sshCmd := factory.SSHCmd()
-		assert.Equal(t, "ssh <name>", sshCmd.Use)
-		assert.Equal(t, "SSH into a container", sshCmd.Short)
+		assert.Equal(t, "ssh", sshCmd.Use)
+		assert.Equal(t, "SSH into the container for the current worktree", sshCmd.Short)
 	})
 
 	t.Run("command execution triggers lazy initialization", func(t *testing.T) {
@@ -49,7 +49,7 @@ func TestLazyCommandFactory(t *testing.T) {
 		}
 		
 		createCmd := factory.CreateCmd()
-		err := createCmd.RunE(createCmd, []string{"test", "https://github.com/test/repo"})
+		err := createCmd.RunE(createCmd, []string{})
 		
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "config not found")
@@ -72,11 +72,11 @@ func TestLazyCommandFactory(t *testing.T) {
 		sshCmd := factory.SSHCmd()
 		
 		// First execution
-		_ = createCmd.RunE(createCmd, []string{"test", "https://github.com/test/repo"})
+		_ = createCmd.RunE(createCmd, []string{})
 		assert.Equal(t, 1, initCount)
 		
 		// Second execution should not re-initialize
-		_ = sshCmd.RunE(sshCmd, []string{"test"})
+		_ = sshCmd.RunE(sshCmd, []string{})
 		assert.Equal(t, 1, initCount)
 	})
 }
