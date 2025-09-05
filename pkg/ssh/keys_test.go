@@ -171,7 +171,7 @@ func TestSSHConfigEntry(t *testing.T) {
     ControlMaster auto
     ControlPath ~/.ssh/control-%r@%h:%p
     ControlPersist 10m
-    RemoteCommand cd /workspace/project && exec $SHELL -l`,
+`,
 		},
 		{
 			name:          "custom user",
@@ -188,14 +188,14 @@ func TestSSHConfigEntry(t *testing.T) {
     ControlMaster auto
     ControlPath ~/.ssh/control-%r@%h:%p
     ControlPersist 10m
-    RemoteCommand cd /workspace/project && exec $SHELL -l`,
+`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			entry := GenerateSSHConfigEntry(tt.containerName, tt.sshPort, tt.containerUser, "dev", tt.remoteHost, "")
-			assert.Equal(t, tt.want+"\n", entry)
+			assert.Equal(t, tt.want, entry)
 		})
 	}
 }

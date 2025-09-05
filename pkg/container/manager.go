@@ -607,8 +607,11 @@ func (m *Manager) SSHIntoContainer(ctx context.Context, name string) error {
 		return fmt.Errorf("container '%s' is not running", name)
 	}
 	
-	// Execute SSH command
-	sshCmd := exec.Command("ssh", fmt.Sprintf("%s-%s", m.config.ContainerPrefix, name))
+	// Execute SSH command with cd to workspace
+	// Use -t to force TTY allocation for interactive session
+	// The command changes to workspace directory and starts an interactive shell
+	sshCmd := exec.Command("ssh", "-t", fmt.Sprintf("%s-%s", m.config.ContainerPrefix, name), 
+		"cd /workspace/project 2>/dev/null; exec $SHELL -l")
 	sshCmd.Stdin = os.Stdin
 	sshCmd.Stdout = os.Stdout
 	sshCmd.Stderr = os.Stderr

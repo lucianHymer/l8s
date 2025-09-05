@@ -85,7 +85,6 @@ func GenerateSSHConfigEntry(containerName string, sshPort int, containerUser, pr
     ControlMaster auto
     ControlPath ~/.ssh/control-%%r@%%h:%%p
     ControlPersist 10m
-    RemoteCommand cd /workspace/project && exec $SHELL -l
 `, hostAlias, remoteHost, sshPort, containerUser, knownHostsPath)
 	}
 
@@ -99,7 +98,6 @@ func GenerateSSHConfigEntry(containerName string, sshPort int, containerUser, pr
     ControlMaster auto
     ControlPath ~/.ssh/control-%%r@%%h:%%p
     ControlPersist 10m
-    RemoteCommand cd /workspace/project && exec $SHELL -l
 `, hostAlias, remoteHost, sshPort, containerUser)
 }
 
