@@ -165,7 +165,3 @@ MIT - See LICENSE file
 ## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
----
-
-*"That container really tied the room together, did it not?"*
