@@ -1,6 +1,6 @@
 # 🎳 L8s (Lebowskis)
 
-> "Your git repository really ties the room together"
+> "The container management system that really ties the room together"
 
 L8s is a **git-native**, **remote-only** development container system that creates isolated, SSH-accessible environments on dedicated servers. Each git repository gets its own persistent container with full development tools.
 
