@@ -9,7 +9,7 @@
 - [SSH and Container Operations](architecture/ssh_container_operations.md) - Remote-only container management via SSH
 - [ZSH Completion System](architecture/zsh_completion.md) - Sophisticated tab completion architecture
 - [SSH Certificate Timing](architecture/ssh_certificate_timing.md) - Pre-startup certificate configuration strategy
-- [SSH Default Directory](architecture/ssh_default_directory.md) - Auto-navigation to workspace on SSH *(Updated: 2025-09-05)*
+- [SSH Default Directory](architecture/ssh_default_directory.md) - Application-level workspace navigation *(Updated: 2025-09-05)*
 
 ## 📐 Patterns
 
@@ -42,6 +42,7 @@
 ## ⚠️ Gotchas
 
 - [Branch Checkout on SSH](gotchas/branch_checkout_on_ssh.md) - Container branch synchronization issue
+- [RemoteCommand Breaks Git Push](gotchas/remote_command_breaks_git.md) - SSH RemoteCommand conflicts with git operations *(New: 2025-09-05)*
 - [SSH Certificates Lost on Rebuild](gotchas/ssh_certificates_rebuild.md) - Certificate setup missing in rebuild command
 - [Testing Unexported Methods](gotchas/testing_unexported_methods.md) - Handler testing limitations and solutions
 - [ZSH Completion Flags](gotchas/zsh_completion_flags.md) - Nonexistent list command flags issue

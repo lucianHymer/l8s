@@ -7,41 +7,62 @@ L8s configures SSH connections to automatically start in the project workspace d
 ### Initial Behavior
 SSH connections initially logged users into the default home directory (/home/dev). The SSH connection was established using `exec.Command("ssh", containerName)` which ran a standard SSH command with no working directory configuration.
 
-### RemoteCommand Implementation
+### Application-Level Implementation
 
-The SSH config now includes a RemoteCommand that automatically changes to `/workspace/project` when establishing interactive connections.
+L8s handles automatic navigation to `/workspace/project` at the application level, avoiding SSH config complications.
 
 **Implementation Details**:
-- Modified `GenerateSSHConfigEntry` in `pkg/ssh/keys.go`
-- Added: `RemoteCommand cd /workspace/project && exec $SHELL -l`
-- Only affects interactive SSH sessions (l8s ssh or direct ssh commands)
-- Non-interactive commands (e.g., `ssh dev-container ls`) ignore RemoteCommand by SSH design
-- SCP and SFTP operations remain unaffected
-- RequestTTY remains at default (auto) which handles both interactive and non-interactive cases correctly
+- The `SSHIntoContainer` method in `pkg/container/manager.go` handles directory navigation
+- For interactive SSH sessions: Explicitly runs 'cd /workspace/project' before starting the shell
+- For non-interactive operations: No directory change occurs, preserving compatibility
+- SSH config remains clean without RemoteCommand directive
+
+### Why Not RemoteCommand?
+
+Initially attempted to use SSH RemoteCommand in the config:
+- Would have added: `RemoteCommand cd /workspace/project && exec $SHELL -l`
+- **Problem discovered**: RemoteCommand breaks git push operations with error "Cannot execute command-line and remote command"
+- Git uses SSH for transport and needs to execute its own commands
+- RemoteCommand conflicts with git's command execution needs
+
+## Solution Architecture
+
+The current implementation splits behavior based on session type:
+
+1. **Interactive SSH (`l8s ssh`)**:
+   - `SSHIntoContainer` method runs: `ssh -t <container> "cd /workspace/project && exec $SHELL -l"`
+   - Users land directly in their project workspace
+   - Full terminal capabilities preserved
+
+2. **Non-interactive operations**:
+   - Git push/pull operations work normally
+   - SCP/SFTP transfers function correctly
+   - SSH commands like `ssh dev-container ls` execute as expected
+   - No directory change interference
 
 ## Impact Analysis
 
-RemoteCommand does NOT interfere with other L8s operations:
+This application-level approach ensures compatibility:
 
-1. **l8s exec**: Uses `Manager.ExecContainer` which calls `client.ExecContainer` - uses Podman exec directly, NOT SSH. RemoteCommand doesn't affect it.
+1. **l8s exec**: Uses `Manager.ExecContainer` which calls `client.ExecContainer` - uses Podman exec directly, not affected.
 
-2. **scp/file transfers**: SCP operations like `scp file.txt dev-myproject:` still work because RemoteCommand only runs for interactive SSH sessions (when RequestTTY is yes). SCP doesn't request a TTY, so RemoteCommand is skipped.
+2. **scp/file transfers**: Work normally as no RemoteCommand exists to interfere.
 
-3. **VS Code Remote SSH**: Benefits from RemoteCommand - VS Code opens directly in /workspace/project.
+3. **VS Code Remote SSH**: May open in home directory initially, but users can configure VS Code's remote.SSH.defaultExtensions setting if needed.
 
-4. **git operations**: Git push/pull to container remotes use SSH for transport but don't execute commands interactively, so RemoteCommand doesn't interfere.
+4. **git operations**: Git push/pull to container remotes work perfectly as SSH transport is unmodified.
 
-5. **Non-interactive SSH commands**: Commands like `ssh dev-myproject ls` work correctly as RemoteCommand is ignored for non-interactive sessions.
+5. **Non-interactive SSH commands**: Commands like `ssh dev-myproject ls` work correctly without any directory change.
 
 ## Benefits
 
-- Users land directly in their project workspace
+- Users land directly in their project workspace (for interactive sessions)
 - Improved developer experience
-- No impact on automated operations
-- Seamless integration with VS Code and other SSH tools
+- No impact on automated operations or git functionality
+- Clean, maintainable solution without SSH config complications
 
 ## Related Files
-- `pkg/ssh/keys.go` - SSH config generation with RemoteCommand
+- `pkg/container/manager.go` - SSHIntoContainer implementation with directory navigation
+- `pkg/ssh/keys.go` - SSH config generation (without RemoteCommand)
 - `pkg/ssh/keys_test.go` - Tests for SSH config generation
-- `pkg/container/manager.go` - Container management and SSH operations
 - `pkg/cli/handlers.go` - CLI command handlers
