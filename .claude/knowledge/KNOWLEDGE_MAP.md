@@ -9,6 +9,7 @@
 - [SSH and Container Operations](architecture/ssh_container_operations.md) - Remote-only container management via SSH
 - [ZSH Completion System](architecture/zsh_completion.md) - Sophisticated tab completion architecture
 - [SSH Certificate Timing](architecture/ssh_certificate_timing.md) - Pre-startup certificate configuration strategy
+- [SSH Default Directory](architecture/ssh_default_directory.md) - Auto-navigation to workspace on SSH *(Updated: 2025-09-05)*
 
 ## 📐 Patterns
 
