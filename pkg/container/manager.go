@@ -712,6 +712,22 @@ func (m *Manager) copyEmbeddedDotfiles(ctx context.Context, containerName string
 			return fmt.Errorf("failed to read embedded file %s: %w", path, err)
 		}
 		
+		// Process .zshrc to inject GitHub token if configured
+		if path == ".zshrc" && m.config.GitHubToken != "" {
+			dataStr := string(data)
+			// Add GitHub token export after oh-my-zsh initialization
+			tokenExport := fmt.Sprintf("\n# GitHub CLI authentication (configured by L8s)\n# Fine-grained token with read Actions/Contents, write Issues/PRs\n# To override: comment out or change this line\nexport GITHUB_TOKEN=\"%s\"\n", m.config.GitHubToken)
+			// Insert after the oh-my-zsh source line
+			dataStr = strings.Replace(dataStr, "source $ZSH/oh-my-zsh.sh", "source $ZSH/oh-my-zsh.sh"+tokenExport, 1)
+			data = []byte(dataStr)
+		} else if path == ".zshrc" {
+			// Add commented out template if no token configured
+			dataStr := string(data)
+			tokenComment := "\n# GitHub CLI authentication (configured by L8s)\n# Fine-grained token with read Actions/Contents, write Issues/PRs\n# To use: uncomment and add your token below\n# export GITHUB_TOKEN=\"github_pat_...\"\n"
+			dataStr = strings.Replace(dataStr, "source $ZSH/oh-my-zsh.sh", "source $ZSH/oh-my-zsh.sh"+tokenComment, 1)
+			data = []byte(dataStr)
+		}
+		
 		// Determine the correct file mode
 		fileMode := info.Mode().Perm()
 		if executableFiles[path] || strings.HasSuffix(path, ".sh") {

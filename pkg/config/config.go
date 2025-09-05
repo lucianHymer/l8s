@@ -41,6 +41,7 @@ type Config struct {
 	ContainerUser   string `yaml:"container_user"`
 	SSHPublicKey    string `yaml:"ssh_public_key"`
 	DotfilesPath    string `yaml:"dotfiles_path,omitempty"`
+	GitHubToken     string `yaml:"github_token,omitempty"`
 }
 
 // DefaultConfig returns the default configuration

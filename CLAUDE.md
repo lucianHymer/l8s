@@ -14,6 +14,15 @@ Key architectural principles:
 - **Git-aware**: Automatic repository cloning and remote management
 - **Security-focused**: Designed for isolated, non-production development environments
 
+## Configuration
+
+### GitHub Token
+L8s containers can be configured with a GitHub fine-grained personal access token for GitHub CLI operations:
+- Token is configured during `l8s init` or in `~/.config/l8s/config.yaml`
+- Automatically injected as `GITHUB_TOKEN` in container `.zshrc`
+- Recommended permissions: Read (Actions, Contents), Read/Write (Issues, Pull requests)
+- Users can override per-container by editing `.zshrc` in the container
+
 ## Essential Development Commands
 
 ### Building and Installation

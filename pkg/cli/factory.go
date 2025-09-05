@@ -46,6 +46,7 @@ func NewCommandFactory() (*CommandFactory, error) {
 		CAPublicKeyPath:  cfg.CAPublicKeyPath,
 		KnownHostsPath:   cfg.KnownHostsPath,
 		RemoteHost:       remoteHost,
+		GitHubToken:      cfg.GitHubToken,
 	}
 
 	return &CommandFactory{

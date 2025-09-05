@@ -50,6 +50,7 @@ type Config struct {
 	CAPublicKeyPath  string
 	KnownHostsPath   string
 	RemoteHost       string
+	GitHubToken      string
 }
 
 // Labels used for container metadata

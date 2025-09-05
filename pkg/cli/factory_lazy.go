@@ -69,6 +69,7 @@ func (f *LazyCommandFactory) defaultInitializer() error {
 		CAPublicKeyPath:  cfg.CAPublicKeyPath,
 		KnownHostsPath:   cfg.KnownHostsPath,
 		RemoteHost:       remoteHost,
+		GitHubToken:      cfg.GitHubToken,
 	}
 
 	f.Config = cfg

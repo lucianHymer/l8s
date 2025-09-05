@@ -648,6 +648,46 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 	}
 	color.Printf("{green}✓{reset} Created CA trust configuration\n")
 	
+	// GitHub token configuration
+	fmt.Println("\n=== GitHub CLI Configuration (Optional) ===")
+	fmt.Println("Configure GitHub access for creating PRs, issues, and viewing code.")
+	fmt.Print("Would you like to configure a GitHub token? (y/n) [n]: ")
+	
+	reader := bufio.NewReader(os.Stdin)
+	response, _ := reader.ReadString('\n')
+	response = strings.TrimSpace(strings.ToLower(response))
+	
+	if response == "y" || response == "yes" {
+		fmt.Println("\nTo create a fine-grained personal access token:")
+		fmt.Println("1. Open: https://github.com/settings/personal-access-tokens/new")
+		fmt.Println("2. Set an expiration date (recommend: 90 days)")
+		fmt.Println("3. Select repository access (specific repos for better security)")
+		fmt.Println("4. Set these Repository permissions:")
+		fmt.Println("   - Actions: Read")
+		fmt.Println("   - Contents: Read")
+		fmt.Println("   - Issues: Read and write")
+		fmt.Println("   - Pull requests: Read and write")
+		fmt.Println("   - Metadata: Read (auto-selected)")
+		fmt.Println("5. Generate and copy the token")
+		fmt.Println()
+		
+		tokenInput, err := promptWithDefault("GitHub token (starts with github_pat_)", "")
+		if err != nil {
+			return err
+		}
+		
+		tokenInput = strings.TrimSpace(tokenInput)
+		if tokenInput != "" {
+			// Basic validation
+			if !strings.HasPrefix(tokenInput, "github_pat_") && !strings.HasPrefix(tokenInput, "ghp_") {
+				fmt.Println("Warning: Token doesn't start with 'github_pat_' or 'ghp_'")
+				fmt.Println("Make sure you've copied the correct token.")
+			}
+			cfg.GitHubToken = tokenInput
+			color.Printf("{green}✓{reset} GitHub token configured\n")
+		}
+	}
+	
 	// Save configuration
 	configPath := config.GetConfigPath()
 	fmt.Printf("\nSaving configuration to %s...\n", configPath)
