@@ -1,6 +1,6 @@
 # 📚 L8s Knowledge Map
 
-*Last updated: 2025-09-05*
+*Last updated: 2025-01-10*
 
 ## 🏗️ Architecture
 
@@ -20,6 +20,7 @@
 
 - [Paste Command](features/paste_command.md) - Clipboard sharing between host and containers
 - [SSH Certificate Authority](features/ssh_certificate_authority.md) - Secure container connections with CA
+- [GitHub CLI Origin Remote](features/github_cli_origin_remote.md) - Automatic origin remote replication for gh CLI *(New: 2025-01-10)*
 
 ## 🔒 Security
 

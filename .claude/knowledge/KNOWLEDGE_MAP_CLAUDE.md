@@ -18,6 +18,7 @@
 
 - @features/paste_command.md - Clipboard sharing between host and containers
 - @features/ssh_certificate_authority.md - Secure container connections with CA
+- @features/github_cli_origin_remote.md - Automatic origin remote replication for gh CLI
 
 ## 🔒 Security
 
