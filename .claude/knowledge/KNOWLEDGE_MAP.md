@@ -1,6 +1,6 @@
 # 📚 L8s Knowledge Map
 
-*Last updated: 2025-09-02*
+*Last updated: 2025-09-05*
 
 ## 🏗️ Architecture
 
@@ -27,6 +27,14 @@
 
 - [Make CI Requirements](testing/make_ci_requirements.md) - Comprehensive CI validation process
 - [ZSH Completion Test Framework](testing/zsh_completion_framework.md) - Custom framework with 91 tests
+
+## 🔧 Configuration
+
+- [GitHub Token Configuration](config/github_token.md) - Fine-grained personal access tokens for development
+
+## 📦 Dependencies
+
+- [GitHub CLI in Containers](dependencies/github_cli.md) - GitHub CLI installation for development workflows
 
 ## ⚠️ Gotchas
 

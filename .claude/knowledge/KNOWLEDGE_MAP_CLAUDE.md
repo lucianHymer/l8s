@@ -26,6 +26,14 @@
 - @testing/make_ci_requirements.md - Comprehensive CI validation process
 - @testing/zsh_completion_framework.md - Custom framework with 91 tests
 
+## 🔧 Configuration
+
+- @config/github_token.md - Fine-grained personal access tokens for development
+
+## 📦 Dependencies
+
+- @dependencies/github_cli.md - GitHub CLI installation for development workflows
+
 ## ⚠️ Gotchas
 
 - @gotchas/testing_unexported_methods.md - Handler testing limitations and solutions
