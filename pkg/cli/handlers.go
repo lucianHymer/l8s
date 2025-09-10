@@ -456,10 +456,14 @@ func (f *CommandFactory) runExec(cmd *cobra.Command, args []string) error {
 
 // runPaste handles the paste command
 func (f *CommandFactory) runPaste(cmd *cobra.Command, args []string) error {
-	containerName := args[0]
+	// Check if we're in a git repository
+	if !f.GitClient.IsGitRepository(".") {
+		return fmt.Errorf("l8s paste must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
+	}
+
 	var customName string
-	if len(args) > 1 {
-		customName = args[1]
+	if len(args) > 0 {
+		customName = args[0]
 	}
 
 	// Check platform - only macOS supported initially
@@ -468,6 +472,14 @@ func (f *CommandFactory) runPaste(cmd *cobra.Command, args []string) error {
 	}
 
 	ctx := context.Background()
+
+	// Generate container name from worktree
+	fullName, err := GetContainerNameFromWorktree(f.Config.ContainerPrefix)
+	if err != nil {
+		return fmt.Errorf("failed to determine container name: %w", err)
+	}
+	// Remove prefix for the short name
+	containerName := fullName[len(f.Config.ContainerPrefix)+1:]
 
 	// Check if container exists and is running
 	cont, err := f.ContainerMgr.GetContainerInfo(ctx, containerName)

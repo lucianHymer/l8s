@@ -23,15 +23,14 @@ func TestPasteCommandStructure(t *testing.T) {
 	cmd := factory.PasteCmd()
 
 	// Check command configuration
-	assert.Equal(t, "paste <container> [name]", cmd.Use)
+	assert.Equal(t, "paste [name]", cmd.Use)
 	assert.Contains(t, cmd.Short, "clipboard")
 	assert.NotNil(t, cmd.RunE)
 
-	// Test argument validation
-	assert.NoError(t, cmd.Args(nil, []string{"container"}))
-	assert.NoError(t, cmd.Args(nil, []string{"container", "name"}))
-	assert.Error(t, cmd.Args(nil, []string{}))
-	assert.Error(t, cmd.Args(nil, []string{"a", "b", "c"}))
+	// Test argument validation - paste now accepts 0 or 1 arg
+	assert.NoError(t, cmd.Args(nil, []string{}))
+	assert.NoError(t, cmd.Args(nil, []string{"name"}))
+	assert.Error(t, cmd.Args(nil, []string{"a", "b"}))
 }
 
 func TestRunPastePlatformCheck(t *testing.T) {

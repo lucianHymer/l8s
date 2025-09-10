@@ -46,11 +46,11 @@ assert_not_contains "$completions" "myproject" "Should NOT show containers for e
 assert_not_contains "$completions" "webapp" "Should NOT show containers for exec (git-native)"
 assert_not_contains "$completions" "api" "Should NOT show containers for exec (git-native)"
 
-# Test 3b: Paste command should only show running containers
+# Test 3b: Paste command is now git-native (doesn't take container arg)
 completions=$(get_completions "l8s paste ")
-assert_contains "$completions" "myproject" "Should show running container 'myproject' for paste"
-assert_contains "$completions" "webapp" "Should show running container 'webapp' for paste"
-assert_not_contains "$completions" "api" "Should NOT show stopped container 'api' for paste"
+assert_not_contains "$completions" "myproject" "Should NOT show containers for paste (git-native)"
+assert_not_contains "$completions" "webapp" "Should NOT show containers for paste (git-native)"
+assert_not_contains "$completions" "api" "Should NOT show containers for paste (git-native)"
 
 # Test 4: Only info shows all containers (remove, rm, rebuild, ssh are git-native)
 completions=$(get_completions "l8s info ")

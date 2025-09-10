@@ -96,8 +96,9 @@ func (f *LazyCommandFactory) CreateCmd() *cobra.Command {
 	var branch string
 	
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new development container",
+		Use:     "create",
+		Short:   "Create a new development container",
+		GroupID: "repo-maintenance",
 		Long:  `Creates a new development container for the current git worktree.
 
 The container name is automatically generated from the repository name and worktree path.
@@ -137,9 +138,10 @@ A git remote will be added to your local repository for easy code synchronizatio
 // SSHCmd returns the ssh command with lazy initialization
 func (f *LazyCommandFactory) SSHCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "ssh",
-		Short: "SSH into the container for the current worktree",
-		Args:  cobra.NoArgs,
+		Use:     "ssh",
+		Short:   "SSH into the container for the current worktree",
+		GroupID: "working",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -160,6 +162,7 @@ func (f *LazyCommandFactory) ListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "list",
 		Short:   "List all l8s containers",
+		GroupID: "container",
 		Aliases: []string{"ls"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
@@ -179,9 +182,10 @@ func (f *LazyCommandFactory) ListCmd() *cobra.Command {
 // StartCmd returns the start command with lazy initialization
 func (f *LazyCommandFactory) StartCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "start <name>",
-		Short: "Start a stopped container",
-		Args:  cobra.ExactArgs(1),
+		Use:     "start <name>",
+		Short:   "Start a stopped container",
+		GroupID: "container",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -200,9 +204,10 @@ func (f *LazyCommandFactory) StartCmd() *cobra.Command {
 // StopCmd returns the stop command with lazy initialization
 func (f *LazyCommandFactory) StopCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "stop <name>",
-		Short: "Stop a running container",
-		Args:  cobra.ExactArgs(1),
+		Use:     "stop <name>",
+		Short:   "Stop a running container",
+		GroupID: "container",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -223,6 +228,7 @@ func (f *LazyCommandFactory) RemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "remove",
 		Short:   "Remove the container for the current worktree",
+		GroupID: "repo-maintenance",
 		Args:    cobra.NoArgs,
 		Aliases: []string{"rm"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -248,9 +254,10 @@ func (f *LazyCommandFactory) RemoveCmd() *cobra.Command {
 // InfoCmd returns the info command with lazy initialization
 func (f *LazyCommandFactory) InfoCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "info <name>",
-		Short: "Show detailed container information",
-		Args:  cobra.ExactArgs(1),
+		Use:     "info <name>",
+		Short:   "Show detailed container information",
+		GroupID: "container",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -269,9 +276,10 @@ func (f *LazyCommandFactory) InfoCmd() *cobra.Command {
 // BuildCmd returns the build command with lazy initialization
 func (f *LazyCommandFactory) BuildCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "build",
-		Short: "Build or rebuild the base container image",
-		Args:  cobra.NoArgs,
+		Use:     "build",
+		Short:   "Build or rebuild the base container image",
+		GroupID: "container",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -290,8 +298,9 @@ func (f *LazyCommandFactory) BuildCmd() *cobra.Command {
 // RemoteCmd returns the remote command with subcommands and lazy initialization
 func (f *LazyCommandFactory) RemoteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "remote",
-		Short: "Manage git remotes for containers",
+		Use:     "remote",
+		Short:   "Manage git remotes for containers",
+		GroupID: "container",
 	}
 
 	cmd.AddCommand(
@@ -337,9 +346,10 @@ func (f *LazyCommandFactory) RemoteCmd() *cobra.Command {
 // ExecCmd returns the exec command with lazy initialization
 func (f *LazyCommandFactory) ExecCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "exec <command> [args...]",
-		Short: "Execute command in the container for the current worktree",
-		Args:  cobra.MinimumNArgs(1),
+		Use:     "exec <command> [args...]",
+		Short:   "Execute command in the container for the current worktree",
+		GroupID: "working",
+		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -358,8 +368,9 @@ func (f *LazyCommandFactory) ExecCmd() *cobra.Command {
 // InitCmd returns the init command without lazy initialization
 func (f *LazyCommandFactory) InitCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "init",
-		Short: "Initialize l8s configuration",
+		Use:     "init",
+		Short:   "Initialize l8s configuration",
+		GroupID: "setup",
 		Long: `Initialize l8s configuration by setting up remote server connection details.
 	
 l8s ONLY supports remote container management for security isolation.
@@ -378,8 +389,9 @@ You'll need:
 // RebuildCmd returns the rebuild command with lazy initialization
 func (f *LazyCommandFactory) RebuildCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "rebuild",
-		Short: "Rebuild the container for the current worktree while preserving data",
+		Use:     "rebuild",
+		Short:   "Rebuild the container for the current worktree while preserving data",
+		GroupID: "repo-maintenance",
 		Long: `Rebuild recreates a container with the latest base image while preserving:
 - All workspace and home directory data (volumes)
 - SSH port assignment
@@ -418,8 +430,9 @@ func (f *LazyCommandFactory) RebuildCmd() *cobra.Command {
 // RebuildAllCmd returns the rebuild-all command with lazy initialization
 func (f *LazyCommandFactory) RebuildAllCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "rebuild-all",
-		Short: "Rebuild all containers with updated image",
+		Use:     "rebuild-all",
+		Short:   "Rebuild all containers with updated image",
+		GroupID: "container",
 		Long: `Rebuild all containers with the latest base image while preserving their data.
 		
 This is useful after updating the base image or when you want to refresh all containers.`,
@@ -448,14 +461,15 @@ This is useful after updating the base image or when you want to refresh all con
 // PasteCmd returns the paste command with lazy initialization
 func (f *LazyCommandFactory) PasteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "paste <container> [name]",
-		Short: "Paste clipboard content to container",
-		Long: `Paste clipboard content (image or text) from your local machine to a container.
+		Use:     "paste [name]",
+		Short:   "Paste clipboard content to container",
+		GroupID: "working",
+		Long: `Paste clipboard content (image or text) from your local machine to the container for the current worktree.
 Content is saved to /tmp/claude-clipboard/ in the container.
 
 Without a custom name, files are saved as clipboard.png or clipboard.txt (replacing any existing default files).
 With a custom name, files are saved as clipboard-<name>.png or clipboard-<name>.txt (preserving existing files).`,
-		Args: cobra.RangeArgs(1, 2),
+		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -474,8 +488,9 @@ With a custom name, files are saved as clipboard-<name>.png or clipboard-<name>.
 // PushCmd returns the push command with lazy initialization
 func (f *LazyCommandFactory) PushCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "push",
-		Short: "Push current branch to container (fast-forward only)",
+		Use:     "push",
+		Short:   "Push current branch to container (fast-forward only)",
+		GroupID: "working",
 		Long: `Push the current git branch to the container for this worktree.
 		
 The push will fail if it would overwrite changes in the container (non-fast-forward).
@@ -499,8 +514,9 @@ Use 'l8s pull' first if the container has diverged.`,
 // PullCmd returns the pull command with lazy initialization
 func (f *LazyCommandFactory) PullCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "pull",
-		Short: "Pull changes from container (fast-forward only)",
+		Use:     "pull",
+		Short:   "Pull changes from container (fast-forward only)",
+		GroupID: "working",
 		Long: `Pull changes from the container to your local worktree.
 		
 The pull will fail if it would overwrite local changes (non-fast-forward).
@@ -524,10 +540,11 @@ Resolve conflicts manually if your local branch has diverged.`,
 // StatusCmd returns the status command with lazy initialization
 func (f *LazyCommandFactory) StatusCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "status",
-		Short: "Show status of container for current worktree",
-		Long:  `Display the status and information about the container associated with the current git worktree.`,
-		Args:  cobra.NoArgs,
+		Use:     "status",
+		Short:   "Show status of container for current worktree",
+		GroupID: "working",
+		Long:    `Display the status and information about the container associated with the current git worktree.`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := f.ensureInitialized(); err != nil {
 				return err
@@ -546,9 +563,10 @@ func (f *LazyCommandFactory) StatusCmd() *cobra.Command {
 // ConnectionCmd returns the connection command with subcommands
 func (f *LazyCommandFactory) ConnectionCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "connection",
-		Short: "Manage Podman connection configurations",
-		Long:  "Manage multiple Podman connection configurations for different network access scenarios",
+		Use:     "connection",
+		Short:   "Manage Podman connection configurations",
+		GroupID: "setup",
+		Long:    "Manage multiple Podman connection configurations for different network access scenarios",
 	}
 	
 	// List subcommand
@@ -601,8 +619,9 @@ func (f *LazyCommandFactory) ConnectionCmd() *cobra.Command {
 // InstallZSHPluginCmd creates the install-zsh-plugin command
 func (f *LazyCommandFactory) InstallZSHPluginCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "install-zsh-plugin",
-		Short: "Install l8s ZSH completion plugin for Oh My Zsh",
+		Use:     "install-zsh-plugin",
+		Short:   "Install l8s ZSH completion plugin for Oh My Zsh",
+		GroupID: "setup",
 		Long: `Install the l8s ZSH completion plugin to enable tab completion for l8s commands.
 
 This command will:
