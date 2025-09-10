@@ -26,7 +26,7 @@ setup_test_env() {
     compinit -d $TEST_DIR/.zcompdump
     
     # Load the completion function directly
-    source ../_l8s
+    source ../../pkg/embed/host-integration/oh-my-zsh/l8s/_l8s
 }
 
 # Cleanup test environment

@@ -13,3 +13,14 @@
 **Files**: pkg/embed/host_integration.go, pkg/cli/factory_lazy.go, pkg/cli/handlers.go, cmd/l8s/main.go
 ---
 
+### [14:06] [architecture] ZSH plugin duplicate locations
+**Details**: L8s has two identical copies of the ZSH plugin:
+1. Original: host-integration/oh-my-zsh/l8s/
+2. Embedded: pkg/embed/host-integration/oh-my-zsh/l8s/
+
+The embedded version is what gets installed via 'l8s install-zsh-plugin'. The ExtractZSHPlugin function in pkg/embed/host_integration.go copies files from the embedded filesystem to ~/.oh-my-zsh/custom/plugins/l8s.
+
+Both copies must be kept in sync when making changes to the ZSH plugin.
+**Files**: pkg/embed/host_integration.go, host-integration/oh-my-zsh/l8s/_l8s, pkg/embed/host-integration/oh-my-zsh/l8s/_l8s
+---
+

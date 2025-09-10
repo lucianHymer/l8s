@@ -70,7 +70,7 @@ test-go: ## Run Go unit tests
 .PHONY: test-zsh
 test-zsh: ## Run ZSH plugin tests
 	@echo "🐚 Running ZSH plugin tests..."
-	@cd host-integration/oh-my-zsh/l8s/tests && zsh run_all_tests.sh
+	@cd test/zsh-plugin && zsh run_all_tests.sh
 	@echo "✓ ZSH plugin tests complete"
 
 .PHONY: test-coverage

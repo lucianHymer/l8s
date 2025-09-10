@@ -40,11 +40,11 @@ assert_contains "$completions" "api" "Should show stopped container 'api' for st
 assert_not_contains "$completions" "myproject" "Should NOT show running container 'myproject' for start"
 assert_not_contains "$completions" "webapp" "Should NOT show running container 'webapp' for start"
 
-# Test 3: Exec command should only show running containers
+# Test 3: Exec command is git-native - doesn't take container names
 completions=$(get_completions "l8s exec ")
-assert_contains "$completions" "myproject" "Should show running container 'myproject' for exec"
-assert_contains "$completions" "webapp" "Should show running container 'webapp' for exec"
-assert_not_contains "$completions" "api" "Should NOT show stopped container 'api' for exec"
+assert_not_contains "$completions" "myproject" "Should NOT show containers for exec (git-native)"
+assert_not_contains "$completions" "webapp" "Should NOT show containers for exec (git-native)"
+assert_not_contains "$completions" "api" "Should NOT show containers for exec (git-native)"
 
 # Test 3b: Paste command should only show running containers
 completions=$(get_completions "l8s paste ")
@@ -52,20 +52,25 @@ assert_contains "$completions" "myproject" "Should show running container 'mypro
 assert_contains "$completions" "webapp" "Should show running container 'webapp' for paste"
 assert_not_contains "$completions" "api" "Should NOT show stopped container 'api' for paste"
 
-# Test 4: Remove, rm, rebuild, info, and ssh should show all containers
-for cmd in "remove" "rm" "rebuild" "info" "ssh"; do
+# Test 4: Only info shows all containers (remove, rm, rebuild, ssh are git-native)
+completions=$(get_completions "l8s info ")
+assert_contains "$completions" "myproject" "Should show all containers for 'info' command"
+assert_contains "$completions" "webapp" "Should show all containers for 'info' command"
+assert_contains "$completions" "api" "Should show all containers for 'info' command"
+assert_contains "$completions" "cli-tool" "Should show all containers for 'info' command"
+
+# Test 4b: Git-native commands don't take container names
+for cmd in "remove" "rm" "rebuild" "ssh"; do
     completions=$(get_completions "l8s $cmd ")
-    assert_contains "$completions" "myproject" "Should show all containers for '$cmd' command"
-    assert_contains "$completions" "webapp" "Should show all containers for '$cmd' command"
-    assert_contains "$completions" "api" "Should show all containers for '$cmd' command"
-    assert_contains "$completions" "cli-tool" "Should show all containers for '$cmd' command"
+    assert_not_contains "$completions" "myproject" "Should NOT show containers for '$cmd' (git-native)"
+    assert_not_contains "$completions" "webapp" "Should NOT show containers for '$cmd' (git-native)"
+    assert_not_contains "$completions" "api" "Should NOT show containers for '$cmd' (git-native)"
+    assert_not_contains "$completions" "cli-tool" "Should NOT show containers for '$cmd' (git-native)"
 done
 
-# Test 5: Exec command should suggest commands after container name
-completions=$(get_completions "l8s exec myproject ")
-# We'll implement common command suggestions later in the actual plugin
-# For now, we just test that it doesn't try to complete more containers
-assert_not_contains "$completions" "webapp" "Should not suggest other containers after selecting one"
+# Test 5: Exec command doesn't take container names anymore (git-native)
+# This test is no longer applicable
+assert_not_contains "$(get_completions 'l8s exec myproject ')" "webapp" "Should not suggest other containers after selecting one"
 
 # Cleanup
 cleanup_test_env
