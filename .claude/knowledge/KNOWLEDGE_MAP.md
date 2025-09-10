@@ -1,6 +1,6 @@
 # 📚 L8s Knowledge Map
 
-*Last updated: 2025-01-10*
+*Last updated: 2025-09-10*
 
 ## 🏗️ Architecture
 
@@ -9,7 +9,9 @@
 - [SSH and Container Operations](architecture/ssh_container_operations.md) - Remote-only container management via SSH
 - [ZSH Completion System](architecture/zsh_completion.md) - Sophisticated tab completion architecture
 - [SSH Certificate Timing](architecture/ssh_certificate_timing.md) - Pre-startup certificate configuration strategy
-- [SSH Default Directory](architecture/ssh_default_directory.md) - Application-level workspace navigation *(Updated: 2025-09-05)*
+- [SSH Default Directory](architecture/ssh_default_directory.md) - Application-level workspace navigation
+- [Host Integration Embedding](architecture/host_integration_embedding.md) - Binary embedding system for host tools *(New: 2025-09-10)*
+- [ZSH Plugin Duplication](architecture/zsh_plugin_duplication.md) - Dual plugin locations requiring sync *(New: 2025-09-10)*
 
 ## 📐 Patterns
 
@@ -20,7 +22,7 @@
 
 - [Paste Command](features/paste_command.md) - Clipboard sharing between host and containers
 - [SSH Certificate Authority](features/ssh_certificate_authority.md) - Secure container connections with CA
-- [GitHub CLI Origin Remote](features/github_cli_origin_remote.md) - Automatic origin remote replication for gh CLI *(New: 2025-01-10)*
+- [GitHub CLI Origin Remote](features/github_cli_origin_remote.md) - Automatic origin remote replication for gh CLI
 
 ## 🔒 Security
 
@@ -43,10 +45,12 @@
 ## ⚠️ Gotchas
 
 - [Branch Checkout on SSH](gotchas/branch_checkout_on_ssh.md) - Container branch synchronization issue
-- [RemoteCommand Breaks Git Push](gotchas/remote_command_breaks_git.md) - SSH RemoteCommand conflicts with git operations *(New: 2025-09-05)*
+- [RemoteCommand Breaks Git Push](gotchas/remote_command_breaks_git.md) - SSH RemoteCommand conflicts with git operations
 - [SSH Certificates Lost on Rebuild](gotchas/ssh_certificates_rebuild.md) - Certificate setup missing in rebuild command
 - [Testing Unexported Methods](gotchas/testing_unexported_methods.md) - Handler testing limitations and solutions
 - [ZSH Completion Flags](gotchas/zsh_completion_flags.md) - Nonexistent list command flags issue
+- [MCP Server Protocol Error](gotchas/mcp_server_protocol_error.md) - Mim MCP server validation errors *(New: 2025-09-10)*
+- [ZSH Plugin Missing from Embedded](gotchas/zsh_plugin_missing_from_embedded.md) - Container tab completion broken *(New: 2025-09-10)*
 
 ---
 
