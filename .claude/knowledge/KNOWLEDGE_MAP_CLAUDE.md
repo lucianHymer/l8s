@@ -8,6 +8,8 @@
 - @architecture/zsh_completion.md - Sophisticated tab completion architecture
 - @architecture/ssh_certificate_timing.md - Pre-startup certificate configuration strategy
 - @architecture/ssh_default_directory.md - Application-level workspace navigation
+- @architecture/host_integration_embedding.md - Binary embedding system for host tools
+- @architecture/zsh_plugin_duplication.md - Dual plugin locations requiring sync
 
 ## 📐 Patterns
 
@@ -45,3 +47,5 @@
 - @gotchas/ssh_certificates_rebuild.md - Certificate setup missing in rebuild command
 - @gotchas/testing_unexported_methods.md - Handler testing limitations and solutions
 - @gotchas/zsh_completion_flags.md - Nonexistent list command flags issue
+- @gotchas/mcp_server_protocol_error.md - Mim MCP server validation errors
+- @gotchas/zsh_plugin_missing_from_embedded.md - Container tab completion broken

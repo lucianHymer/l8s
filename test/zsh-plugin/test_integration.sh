@@ -17,8 +17,8 @@ cat > $TEST_HOME/.zshrc << 'EOF'
 autoload -U compinit && compinit
 
 # Add plugin to fpath and load it
-fpath=($PWD/.. $fpath)
-source ../l8s.plugin.zsh
+fpath=($PWD/../../pkg/embed/host-integration/oh-my-zsh/l8s $fpath)
+source ../../pkg/embed/host-integration/oh-my-zsh/l8s/l8s.plugin.zsh
 EOF
 
 # Test that the plugin loads without errors

@@ -40,20 +40,25 @@ _l8s() {
     commands=(
         'init:Initialize l8s configuration for remote server'
         'build:Build the base container image on remote server'
-        'create:Create a new development container'
+        'create:Create a new development container from current git repository'
         'list:List all l8s containers'
         'ls:List all l8s containers (alias for list)'
         'start:Start a stopped container'
         'stop:Stop a running container'
-        'remove:Remove a container'
-        'rm:Remove a container (alias for remove)'
-        'rebuild:Rebuild a container with updated image'
+        'remove:Remove the container for current git repository'
+        'rm:Remove the container for current git repository (alias for remove)'
+        'rebuild:Rebuild the container for current git repository'
+        'rebuild-all:Rebuild all containers with updated image'
         'info:Get detailed container information'
-        'ssh:SSH into a container'
-        'exec:Execute command in container'
+        'ssh:SSH into the container for current git repository'
+        'exec:Execute command in container for current git repository'
         'paste:Paste clipboard content to container'
+        'push:Push code to container for current git repository'
+        'pull:Pull code from container for current git repository'
+        'status:Show status of container for current git repository'
         'remote:Manage git remotes for containers'
         'connection:Manage SSH connections'
+        'install-zsh-plugin:Install ZSH completion plugin'
     )
     
     # Check if we're completing flags for a command
@@ -98,100 +103,77 @@ _l8s() {
             ;;
             
         3)
-            # Complete based on the command
-            case "${words[2]}" in
+            # Most commands now derive container from git context
+            # Only a few commands still take container names or other arguments
+            case "$cmd" in
                 start)
-                    # Only show stopped containers
+                    # Only show stopped containers for start
                     _l8s_get_containers "stopped"
                     ;;
-                    
-                stop|exec|paste)
-                    # Only show running containers
+                stop)
+                    # Only show running containers for stop
                     _l8s_get_containers "running"
                     ;;
-                    
-                remove|rm|info|ssh|rebuild)
-                    # Show all containers
+                info)
+                    # Show all containers for info
                     _l8s_get_containers
                     ;;
-                    
+                paste)
+                    # Paste still takes container name as first arg
+                    _l8s_get_containers "running"
+                    ;;
                 remote)
-                    # Show subcommands
-                    compadd add remove
+                    # Complete remote subcommands
+                    local -a remote_commands
+                    remote_commands=(
+                        'add:Add a git remote for a container'
+                        'remove:Remove a git remote for a container'
+                    )
+                    compadd ${remote_commands%%:*}
                     ;;
-                    
                 connection)
-                    # Show connection subcommands
-                    compadd list show switch
+                    # Complete connection subcommands
+                    local -a connection_commands
+                    connection_commands=(
+                        'list:List available SSH connections'
+                        'show:Show current SSH connection'
+                        'switch:Switch to a different SSH connection'
+                    )
+                    compadd ${connection_commands%%:*}
                     ;;
-                    
-                create)
-                    # First arg is container name
-                    _message 'container name'
-                    ;;
+                # Git-native commands don't take container names:
+                # create, ssh, rebuild, remove/rm, exec, push, pull, status
+                # all derive container from current git repository
             esac
             ;;
             
         4)
-            # Complete based on command and previous args
-            case "${words[2]}" in
+            # Complete for subcommands that need additional arguments
+            case "$cmd" in
                 remote)
-                    # After remote subcommand, complete containers
-                    if [[ "${words[3]}" == "add" || "${words[3]}" == "remove" ]]; then
+                    if [[ "${words[3]}" == "add" ]] || [[ "${words[3]}" == "remove" ]]; then
                         _l8s_get_containers
                     fi
                     ;;
-                    
                 connection)
-                    # After connection subcommand
-                    case "${words[3]}" in
-                        show|switch)
-                            # Complete connection names (we'd need to implement _l8s_get_connections)
-                            _message 'connection name'
-                            ;;
-                    esac
-                    ;;
-                    
-                create)
-                    # Second arg is git URL (unless flag is present)
-                    if [[ "${words[3]}" != -* ]]; then
-                        _message 'git repository URL'
+                    if [[ "${words[3]}" == "switch" ]]; then
+                        # TODO: Complete available connections
+                        # For now, no completion
                     fi
                     ;;
-                    
                 paste)
-                    # Optional name for clipboard file
-                    _message 'clipboard name (optional)'
+                    # After container name, user can optionally provide a filename
+                    # No completion for this
                     ;;
-                    
-                exec)
-                    # After container name, suggest common commands
-                    local -a common_commands
-                    common_commands=(bash zsh nvim git python node go make npm cargo)
-                    compadd -d common_commands $common_commands
-                    ;;
+                # exec now derives container from git context, so command args start at position 3
             esac
             ;;
             
         *)
-            # Handle remaining arguments
-            case "${words[2]}" in
-                create)
-                    # Third arg is optional branch (if not a flag)
-                    if [[ $CURRENT -eq 5 && "${words[4]}" != -* ]]; then
-                        _message 'branch name (optional)'
-                    fi
-                    ;;
-                exec)
-                    # Additional arguments for exec command
-                    _message 'command arguments'
-                    ;;
-            esac
+            # Don't provide further completions
             ;;
     esac
-    
-    return 0
 }
 
-# Initialize completion
+# Register the completion function
 _l8s "$@"

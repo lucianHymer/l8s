@@ -13,19 +13,19 @@ alias l8s=mock_l8s
 
 run_test_suite "Container Name Completion"
 
-# Test 1: Complete container names for ssh command
-completions=$(get_completions "l8s ssh ")
+# Test 1: Complete container names for info command (not ssh - that's git-native)
+completions=$(get_completions "l8s info ")
 assert_contains "$completions" "myproject" "Should complete 'myproject' container"
 assert_contains "$completions" "webapp" "Should complete 'webapp' container"
 assert_contains "$completions" "api" "Should complete 'api' container"
 assert_contains "$completions" "cli-tool" "Should complete 'cli-tool' container"
 
-# Test 2: Partial container name completion
-completions=$(get_completions "l8s ssh my")
+# Test 2: Partial container name completion for info
+completions=$(get_completions "l8s info my")
 assert_contains "$completions" "myproject" "Should complete 'my' to 'myproject'"
 # Note: In test environment, we get all completions. Real zsh filters by prefix.
 
-completions=$(get_completions "l8s ssh cli")
+completions=$(get_completions "l8s info cli")
 assert_contains "$completions" "cli-tool" "Should complete 'cli' to 'cli-tool'"
 
 # Test 3: Container completion for different commands
@@ -33,9 +33,16 @@ assert_contains "$completions" "cli-tool" "Should complete 'cli' to 'cli-tool'"
 completions=$(get_completions "l8s start ")
 assert_contains "$completions" "api" "Should complete stopped containers for 'start' command"
 
-for cmd in "stop" "remove" "info" "exec"; do
+# Only 'stop' and 'info' still take container names
+for cmd in "stop" "info"; do
     completions=$(get_completions "l8s $cmd ")
     assert_contains "$completions" "myproject" "Should complete containers for '$cmd' command"
+done
+
+# Git-native commands don't take container names
+for cmd in "remove" "exec"; do
+    completions=$(get_completions "l8s $cmd ")
+    assert_not_contains "$completions" "myproject" "Should NOT complete containers for '$cmd' command (git-native)"
 done
 
 # Test 4: No container completion for commands that don't need it
@@ -48,9 +55,9 @@ assert_not_contains "$completions" "myproject" "Should not complete containers f
 completions=$(get_completions "l8s list ")
 assert_not_contains "$completions" "myproject" "Should not complete containers for 'list' command"
 
-# Test 5: Complete with dev- prefix stripped
-completions=$(get_completions "l8s ssh dev-")
-assert_contains "$completions" "myproject" "Should still complete when user types 'dev-' prefix"
+# Test 5: SSH is git-native, doesn't take container names
+completions=$(get_completions "l8s ssh ")
+assert_not_contains "$completions" "myproject" "Should NOT complete containers for 'ssh' (git-native)"
 
 # Cleanup
 cleanup_test_env

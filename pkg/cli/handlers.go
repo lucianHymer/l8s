@@ -14,6 +14,7 @@ import (
 	"github.com/juju/ansiterm"
 	"l8s/pkg/color"
 	"l8s/pkg/config"
+	"l8s/pkg/embed"
 	"l8s/pkg/ssh"
 	"github.com/spf13/cobra"
 )
@@ -1171,5 +1172,69 @@ func (f *CommandFactory) runRebuildAll(cmd *cobra.Command, args []string) error 
 		fmt.Println()
 	}
 	
+	return nil
+}
+
+// runInstallZSHPlugin installs the ZSH completion plugin for Oh My Zsh
+func (f *CommandFactory) runInstallZSHPlugin(ctx context.Context) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	// Check if Oh My Zsh is installed
+	ohmyzshDir := filepath.Join(homeDir, ".oh-my-zsh")
+	if _, err := os.Stat(ohmyzshDir); os.IsNotExist(err) {
+		return fmt.Errorf("Oh My Zsh not found at %s. Please install Oh My Zsh first: https://ohmyz.sh/", ohmyzshDir)
+	}
+
+	// Create destination directory
+	pluginDir := filepath.Join(ohmyzshDir, "custom", "plugins", "l8s")
+	fmt.Printf("Installing l8s ZSH plugin to %s...\n", pluginDir)
+
+	// Remove existing plugin directory if it exists
+	if _, err := os.Stat(pluginDir); err == nil {
+		fmt.Println("Removing existing plugin...")
+		if err := os.RemoveAll(pluginDir); err != nil {
+			return fmt.Errorf("failed to remove existing plugin: %w", err)
+		}
+	}
+
+	// Extract the embedded ZSH plugin
+	if err := embed.ExtractZSHPlugin(pluginDir); err != nil {
+		return fmt.Errorf("failed to extract ZSH plugin: %w", err)
+	}
+
+	color.Printf("{green}✓{reset} Plugin files installed\n")
+
+	// Update .zshrc to load the plugin
+	zshrcPath := filepath.Join(homeDir, ".zshrc")
+	zshrcContent, err := os.ReadFile(zshrcPath)
+	if err != nil {
+		return fmt.Errorf("failed to read .zshrc: %w", err)
+	}
+
+	// Check if plugin is already configured
+	if strings.Contains(string(zshrcContent), "plugins+=(l8s)") || 
+	   strings.Contains(string(zshrcContent), "plugins=(") && strings.Contains(string(zshrcContent), "l8s") {
+		color.Printf("{green}✓{reset} Plugin already configured in .zshrc\n")
+	} else {
+		// Add plugin to .zshrc
+		fmt.Println("Updating .zshrc...")
+		addition := "\n# l8s plugin auto-load\n" +
+			"if [[ -d \"$ZSH_CUSTOM/plugins/l8s\" ]]; then\n" +
+			"    plugins+=(l8s)\n" +
+			"fi\n"
+		
+		if err := os.WriteFile(zshrcPath, append(zshrcContent, []byte(addition)...), 0644); err != nil {
+			return fmt.Errorf("failed to update .zshrc: %w", err)
+		}
+		color.Printf("{green}✓{reset} Added l8s plugin to .zshrc\n")
+	}
+
+	color.Printf("\n{green}🎉 Installation complete!{reset}\n")
+	fmt.Println("\nTo activate the plugin, restart your shell or run:")
+	color.Printf("  {cyan}source ~/.zshrc{reset}\n")
+
 	return nil
 }
