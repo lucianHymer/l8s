@@ -3,6 +3,7 @@
 ## 🏗️ Architecture
 
 - @architecture/command_factory.md - Dual factory pattern for fast CLI startup
+- @architecture/cobra_command_grouping.md - Built-in Cobra support for organized help output
 - @architecture/git_native_design.md - Git extension architecture with deterministic container naming
 - @architecture/ssh_container_operations.md - Remote-only container management via SSH
 - @architecture/zsh_completion.md - Sophisticated tab completion architecture
@@ -18,6 +19,7 @@
 
 ## ✨ Features
 
+- @features/command_grouping.md - Organized help output with command categories
 - @features/paste_command.md - Clipboard sharing between host and containers
 - @features/ssh_certificate_authority.md - Secure container connections with CA
 - @features/github_cli_origin_remote.md - Automatic origin remote replication for gh CLI

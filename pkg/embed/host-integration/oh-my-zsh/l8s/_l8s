@@ -119,8 +119,8 @@ _l8s() {
                     _l8s_get_containers
                     ;;
                 paste)
-                    # Paste still takes container name as first arg
-                    _l8s_get_containers "running"
+                    # Paste now works in git context, no container arg needed
+                    # Could complete custom names here but not implemented yet
                     ;;
                 remote)
                     # Complete remote subcommands

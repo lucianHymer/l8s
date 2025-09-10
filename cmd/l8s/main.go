@@ -28,6 +28,26 @@ accessible via SSH using key-based authentication.`,
 		SilenceErrors: true,
 	}
 
+	// Define command groups for better organization
+	rootCmd.AddGroup(
+		&cobra.Group{
+			ID:    "working",
+			Title: "Working Commands (requires git repo)",
+		},
+		&cobra.Group{
+			ID:    "repo-maintenance",
+			Title: "Repository Maintenance (requires git repo)",
+		},
+		&cobra.Group{
+			ID:    "container",
+			Title: "Container Management (works anywhere)",
+		},
+		&cobra.Group{
+			ID:    "setup",
+			Title: "Setup & Configuration",
+		},
+	)
+
 	// Create lazy command factory
 	factory := cli.NewLazyCommandFactory()
 
