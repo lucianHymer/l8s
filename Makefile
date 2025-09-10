@@ -144,53 +144,7 @@ install-hooks: ## Install git hooks for local CI
 	@chmod +x .git/hooks/pre-push
 	@echo "✓ Git hooks installed! Tests will run before each push."
 
-.PHONY: zsh-plugin
-zsh-plugin: ## Install l8s ZSH completion plugin on host machine
-	@echo "🐚 Installing l8s ZSH completion plugin..."
-	@if [ ! -d "$$HOME/.oh-my-zsh" ]; then \
-		echo "❌ Oh My Zsh not found. Please install Oh My Zsh first."; \
-		exit 1; \
-	fi
-	@echo "📁 Copying plugin to Oh My Zsh custom plugins..."
-	@mkdir -p $$HOME/.oh-my-zsh/custom/plugins
-	@cp -r pkg/embed/dotfiles/.oh-my-zsh/custom/plugins/l8s $$HOME/.oh-my-zsh/custom/plugins/
-	@echo "✓ Plugin copied"
-	@echo "📝 Updating .zshrc..."
-	@if ! grep -q "# l8s plugin auto-load" $$HOME/.zshrc; then \
-		echo "" >> $$HOME/.zshrc; \
-		echo "# l8s plugin auto-load" >> $$HOME/.zshrc; \
-		echo 'if [[ -d "$$ZSH_CUSTOM/plugins/l8s" ]]; then' >> $$HOME/.zshrc; \
-		echo '    plugins+=(l8s)' >> $$HOME/.zshrc; \
-		echo 'fi' >> $$HOME/.zshrc; \
-		echo "✓ Added l8s plugin to .zshrc"; \
-	else \
-		echo "✓ l8s plugin already configured in .zshrc"; \
-	fi
-	@echo "🎉 Installation complete! Restart your shell or run: source ~/.zshrc"
 
-.PHONY: container-build
-container-build: ## Build the l8s container image
-	@echo "🐳 Building container image..."
-	@if [ ! -f containers/Containerfile ]; then \
-		echo "❌ Error: containers/Containerfile not found"; \
-		exit 1; \
-	fi
-	podman build \
-		--build-arg CACHEBUST=$$(date +%s) \
-		-t localhost/l8s-fedora:latest -f containers/Containerfile containers/
-	@echo "✓ Container image built"
-
-.PHONY: container-build-test
-container-build-test: ## Build the test container image
-	@echo "🧪 Building test container image..."
-	@if [ ! -f containers/Containerfile.test ]; then \
-		echo "❌ Error: containers/Containerfile.test not found"; \
-		exit 1; \
-	fi
-	podman build \
-		--build-arg CACHEBUST=$$(date +%s) \
-		-t localhost/l8s-fedora:test -f containers/Containerfile.test containers/
-	@echo "✓ Test container image built"
 
 .PHONY: dev
 dev: ## Run l8s in development mode

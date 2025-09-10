@@ -597,3 +597,24 @@ func (f *LazyCommandFactory) ConnectionCmd() *cobra.Command {
 	
 	return cmd
 }
+
+// InstallZSHPluginCmd creates the install-zsh-plugin command
+func (f *LazyCommandFactory) InstallZSHPluginCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "install-zsh-plugin",
+		Short: "Install l8s ZSH completion plugin for Oh My Zsh",
+		Long: `Install the l8s ZSH completion plugin to enable tab completion for l8s commands.
+
+This command will:
+  1. Install the plugin to ~/.oh-my-zsh/custom/plugins/l8s
+  2. Update your .zshrc to load the plugin
+
+Prerequisites:
+  - Oh My Zsh must be installed (https://ohmyz.sh/)`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// InstallZSHPlugin doesn't need dependencies, create a minimal factory
+			origFactory := &CommandFactory{}
+			return origFactory.runInstallZSHPlugin(cmd.Context())
+		},
+	}
+}
