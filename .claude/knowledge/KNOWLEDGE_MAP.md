@@ -25,6 +25,7 @@
 - [Paste Command](features/paste_command.md) - Clipboard sharing between host and containers
 - [SSH Certificate Authority](features/ssh_certificate_authority.md) - Secure container connections with CA
 - [GitHub CLI Origin Remote](features/github_cli_origin_remote.md) - Automatic origin remote replication for gh CLI
+- [Slash Commands](features/slash_commands.md) - Custom Claude Code commands for development workflows
 
 ## 🔒 Security
 
@@ -53,6 +54,7 @@
 - [ZSH Completion Flags](gotchas/zsh_completion_flags.md) - Nonexistent list command flags issue
 - [MCP Server Protocol Error](gotchas/mcp_server_protocol_error.md) - Mim MCP server validation errors *(New: 2025-09-10)*
 - [ZSH Plugin Missing from Embedded](gotchas/zsh_plugin_missing_from_embedded.md) - Container tab completion broken *(New: 2025-09-10)*
+- [Claude Code @ Syntax](gotchas/claude_code_at_syntax.md) - @ syntax limitations in slash commands
 
 ---
 
