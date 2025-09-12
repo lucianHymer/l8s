@@ -25,23 +25,28 @@ func TestManager_CreateContainer(t *testing.T) {
 			setupMocks: func(m *MockPodmanClient) {
 				m.On("ContainerExists", mock.Anything, "dev-myproject").Return(false, nil)
 				m.On("FindAvailablePort", 2200).Return(2200, nil)
+				m.On("FindAvailablePort", 3000).Return(3000, nil)  // Web port allocation
 				m.On("CreateContainer", mock.Anything, mock.MatchedBy(func(config ContainerConfig) bool {
 					// Verify container config including labels
 					return config.Name == "dev-myproject" &&
 						config.SSHPort == 2200 &&
+						config.WebPort == 3000 &&
 						config.BaseImage == "localhost/l8s-fedora:latest" &&
 						// Verify labels for metadata tracking
 						config.Labels["l8s.managed"] == "true" &&
-						config.Labels["l8s.ssh.port"] == "2200"
+						config.Labels["l8s.ssh.port"] == "2200" &&
+						config.Labels["l8s.web.port"] == "3000"
 				})).Return(&Container{
 					Name:     "dev-myproject",
 					Status:   "created",
 					SSHPort:  2200,
+					WebPort:  3000,
 					Labels: map[string]string{
 						"l8s.managed":   "true",
 						"l8s.git.url":   "https://github.com/user/repo.git",
 						"l8s.git.branch": "main",
 						"l8s.ssh.port":  "2200",
+						"l8s.web.port":  "3000",
 					},
 				}, nil)
 				m.On("StartContainer", mock.Anything, "dev-myproject").Return(nil)
@@ -104,7 +109,7 @@ func TestManager_CreateContainer(t *testing.T) {
 				m.On("FindAvailablePort", 2200).Return(0, assert.AnError)
 			},
 			wantErr:     true,
-			errContains: "failed to find available port",
+			errContains: "failed to find available SSH port",
 		},
 	}
 
@@ -117,6 +122,7 @@ func TestManager_CreateContainer(t *testing.T) {
 				BaseImage:       "localhost/l8s-fedora:latest",
 				ContainerPrefix: "dev",
 				SSHPortStart:    2200,
+				WebPortStart:    3000,
 				ContainerUser:   "dev",
 			})
 
@@ -385,6 +391,7 @@ func TestManager_WorkspaceOwnership(t *testing.T) {
 	
 	mockClient.On("ContainerExists", mock.Anything, "dev-myproject").Return(false, nil)
 	mockClient.On("FindAvailablePort", 2200).Return(2200, nil)
+	mockClient.On("FindAvailablePort", 3000).Return(3000, nil)  // Web port allocation
 	
 	// The key test: verify that CreateContainer is called with volumes having :U option
 	mockClient.On("CreateContainer", mock.Anything, mock.MatchedBy(func(config ContainerConfig) bool {
@@ -395,6 +402,7 @@ func TestManager_WorkspaceOwnership(t *testing.T) {
 		Name:     "dev-myproject",
 		Status:   "created",
 		SSHPort:  2200,
+		WebPort:  3000,
 	}, nil)
 	
 	mockClient.On("StartContainer", mock.Anything, "dev-myproject").Return(nil)
@@ -431,6 +439,7 @@ func TestManager_WorkspaceOwnership(t *testing.T) {
 	manager := NewManager(mockClient, Config{
 		ContainerPrefix: "dev",
 		SSHPortStart:    2200,
+		WebPortStart:    3000,
 		BaseImage:       "localhost/l8s-fedora:latest",
 		ContainerUser:   "dev",
 	})

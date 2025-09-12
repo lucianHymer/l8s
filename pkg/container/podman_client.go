@@ -190,11 +190,16 @@ func (c *RealPodmanClient) CreateContainer(ctx context.Context, config Container
 	s.Hostname = config.Name
 	s.Labels = config.Labels
 
-	// Set up specific port mapping for SSH
+	// Set up specific port mapping for SSH and web
 	s.PortMappings = []types.PortMapping{
 		{
 			HostPort:      uint16(config.SSHPort),
 			ContainerPort: 22,
+			Protocol:      "tcp",
+		},
+		{
+			HostPort:      uint16(config.WebPort),
+			ContainerPort: 3000,
 			Protocol:      "tcp",
 		},
 	}
@@ -313,22 +318,31 @@ func (c *RealPodmanClient) ListContainers(ctx context.Context) ([]*Container, er
 	// Convert to our Container type
 	var result []*Container
 	for _, c := range containerList {
-		// Get SSH port from port mappings if available
+		// Get SSH and web ports from port mappings if available
 		sshPort := 0
+		webPort := 0
 		if c.Ports != nil {
 			for _, port := range c.Ports {
 				if port.ContainerPort == 22 && port.Protocol == "tcp" {
 					sshPort = int(port.HostPort)
-					break
+				} else if port.ContainerPort == 3000 && port.Protocol == "tcp" {
+					webPort = int(port.HostPort)
 				}
 			}
 		}
 		
-		// Fallback to label if no port mapping found
+		// Fallback to labels if no port mapping found
 		if sshPort == 0 {
 			if portStr, ok := c.Labels[LabelSSHPort]; ok {
 				if p, err := strconv.Atoi(portStr); err == nil {
 					sshPort = p
+				}
+			}
+		}
+		if webPort == 0 {
+			if portStr, ok := c.Labels[LabelWebPort]; ok {
+				if p, err := strconv.Atoi(portStr); err == nil {
+					webPort = p
 				}
 			}
 		}
@@ -337,6 +351,7 @@ func (c *RealPodmanClient) ListContainers(ctx context.Context) ([]*Container, er
 			Name:      c.Names[0],
 			Status:    c.State,
 			SSHPort:   sshPort,
+			WebPort:   webPort,
 			CreatedAt: c.Created,
 			Labels:    c.Labels,
 		}
@@ -361,11 +376,18 @@ func (c *RealPodmanClient) GetContainerInfo(ctx context.Context, name string) (*
 
 	// Get SSH port from actual port mappings
 	sshPort := 0
+	webPort := 0
 	if inspect.NetworkSettings != nil && len(inspect.NetworkSettings.Ports) > 0 {
 		// Look for port 22/tcp mapping
 		if portBindings, ok := inspect.NetworkSettings.Ports["22/tcp"]; ok && len(portBindings) > 0 {
 			if p, err := strconv.Atoi(portBindings[0].HostPort); err == nil {
 				sshPort = p
+			}
+		}
+		// Look for port 3000/tcp mapping
+		if portBindings, ok := inspect.NetworkSettings.Ports["3000/tcp"]; ok && len(portBindings) > 0 {
+			if p, err := strconv.Atoi(portBindings[0].HostPort); err == nil {
+				webPort = p
 			}
 		}
 	}
@@ -377,11 +399,19 @@ func (c *RealPodmanClient) GetContainerInfo(ctx context.Context, name string) (*
 			}
 		}
 	}
+	if webPort == 0 {
+		if portStr, ok := inspect.Config.Labels[LabelWebPort]; ok {
+			if p, err := strconv.Atoi(portStr); err == nil {
+				webPort = p
+			}
+		}
+	}
 
 	container := &Container{
 		Name:      name,
 		Status:    inspect.State.Status,
 		SSHPort:   sshPort,
+		WebPort:   webPort,
 		CreatedAt: inspect.Created,
 		Labels:    inspect.Config.Labels,
 	}
@@ -401,8 +431,13 @@ func (c *RealPodmanClient) FindAvailablePort(startPort int) (int, error) {
 	portsInUse := make(map[int]bool)
 	for _, container := range containers {
 		// Only consider running containers
-		if container.Status == "running" && container.SSHPort > 0 {
-			portsInUse[container.SSHPort] = true
+		if container.Status == "running" {
+			if container.SSHPort > 0 {
+				portsInUse[container.SSHPort] = true
+			}
+			if container.WebPort > 0 {
+				portsInUse[container.WebPort] = true
+			}
 		}
 	}
 	

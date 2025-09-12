@@ -38,6 +38,7 @@ func NewCommandFactory() (*CommandFactory, error) {
 	
 	containerConfig := container.Config{
 		SSHPortStart:     cfg.SSHPortStart,
+		WebPortStart:     cfg.WebPortStart,
 		BaseImage:        cfg.BaseImage,
 		ContainerPrefix:  cfg.ContainerPrefix,
 		ContainerUser:    cfg.ContainerUser,

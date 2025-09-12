@@ -68,23 +68,33 @@ func (m *Manager) CreateContainer(ctx context.Context, name, sshKey string) (*Co
 	// Find available SSH port
 	sshPort, err := m.client.FindAvailablePort(m.config.SSHPortStart)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find available port: %w", err)
+		return nil, fmt.Errorf("failed to find available SSH port: %w", err)
+	}
+
+	// Find available web port with consistent offset from SSH port
+	webPortOffset := sshPort - m.config.SSHPortStart
+	webPort, err := m.client.FindAvailablePort(m.config.WebPortStart + webPortOffset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find available web port: %w", err)
 	}
 
 	m.logger.Info("creating container",
 		logging.WithField("name", name),
-		logging.WithField("ssh_port", sshPort))
+		logging.WithField("ssh_port", sshPort),
+		logging.WithField("web_port", webPort))
 
 	// Create container configuration
 	config := ContainerConfig{
 		Name:          containerName,
 		SSHPort:       sshPort,
+		WebPort:       webPort,
 		SSHPublicKey:  sshKey,
 		BaseImage:     m.config.BaseImage,
 		ContainerUser: m.config.ContainerUser,
 		Labels: map[string]string{
 			LabelManaged:   "true",
 			LabelSSHPort:   fmt.Sprintf("%d", sshPort),
+			LabelWebPort:   fmt.Sprintf("%d", webPort),
 		},
 	}
 
@@ -171,7 +181,8 @@ func (m *Manager) CreateContainer(ctx context.Context, name, sshKey string) (*Co
 	m.logger.Info("container created successfully",
 		logging.WithField("name", name),
 		logging.WithField("container", containerName),
-		logging.WithField("ssh_port", sshPort))
+		logging.WithField("ssh_port", sshPort),
+		logging.WithField("web_port", webPort))
 
 	return container, nil
 }
@@ -793,11 +804,13 @@ func (m *Manager) RebuildContainer(ctx context.Context, name string) error {
 		return fmt.Errorf("failed to get container info: %w", err)
 	}
 	
-	// Extract SSH port to preserve
+	// Extract SSH and web ports to preserve
 	sshPort := containerInfo.SSHPort
 	if sshPort == 0 {
 		return fmt.Errorf("container has no SSH port configured")
 	}
+	webPort := containerInfo.WebPort
+	// Web port is optional for backward compatibility
 	
 	// Step 2: Stop the container
 	m.logger.Debug("stopping container for rebuild",
@@ -821,18 +834,25 @@ func (m *Manager) RebuildContainer(ctx context.Context, name string) error {
 	// Note: SSH keys are already in the persisted home volume, so we pass empty string
 	m.logger.Debug("creating new container",
 		logging.WithField("container", containerName),
-		logging.WithField("ssh_port", sshPort))
+		logging.WithField("ssh_port", sshPort),
+		logging.WithField("web_port", webPort))
+	
+	labels := map[string]string{
+		LabelManaged:  "true",
+		LabelSSHPort:  fmt.Sprintf("%d", sshPort),
+	}
+	if webPort > 0 {
+		labels[LabelWebPort] = fmt.Sprintf("%d", webPort)
+	}
 	
 	config := ContainerConfig{
 		Name:          containerName,
 		SSHPort:       sshPort,  // Preserve the same SSH port
+		WebPort:       webPort,  // Preserve the same web port
 		SSHPublicKey:  "",       // Empty - authorized_keys already exists in volume
 		BaseImage:     m.config.BaseImage,  // Use current configured image
 		ContainerUser: m.config.ContainerUser,
-		Labels: map[string]string{
-			LabelManaged:  "true",
-			LabelSSHPort:  fmt.Sprintf("%d", sshPort),
-		},
+		Labels:        labels,
 	}
 	
 	if _, err := m.client.CreateContainer(ctx, config); err != nil {

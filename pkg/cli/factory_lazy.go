@@ -61,6 +61,7 @@ func (f *LazyCommandFactory) defaultInitializer() error {
 	
 	containerConfig := container.Config{
 		SSHPortStart:     cfg.SSHPortStart,
+		WebPortStart:     cfg.WebPortStart,
 		BaseImage:        cfg.BaseImage,
 		ContainerPrefix:  cfg.ContainerPrefix,
 		ContainerUser:    cfg.ContainerUser,

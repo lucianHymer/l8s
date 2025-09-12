@@ -191,15 +191,16 @@ func (f *CommandFactory) runList(cmd *cobra.Command, args []string) error {
 	
 	// Print header in bold
 	if os.Getenv("NO_COLOR") == "" {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			color.Bold(""),
 			color.Bold("NAME"),
 			color.Bold("STATUS"),
 			color.Bold("SSH PORT"),
+			color.Bold("WEB PORT"),
 			color.Bold("GIT REMOTE"),
 			color.Bold("CREATED"))
 	} else {
-		fmt.Fprintln(w, "\tNAME\tSTATUS\tSSH PORT\tGIT REMOTE\tCREATED")
+		fmt.Fprintln(w, "\tNAME\tSTATUS\tSSH PORT\tWEB PORT\tGIT REMOTE\tCREATED")
 	}
 
 	for _, c := range containers {
@@ -218,11 +219,17 @@ func (f *CommandFactory) runList(cmd *cobra.Command, args []string) error {
 			marker = "→"
 		}
 		
-		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n", 
+		webPort := "-"
+		if c.WebPort > 0 {
+			webPort = fmt.Sprintf("%d", c.WebPort)
+		}
+		
+		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\t%s\n", 
 			marker,
 			c.Name,
 			status,
 			c.SSHPort,
+			webPort,
 			gitRemote,
 			created,
 		)
@@ -346,6 +353,9 @@ func (f *CommandFactory) runInfo(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Container: %s\n", cont.Name)
 	fmt.Printf("Status: %s\n", cont.Status)
 	fmt.Printf("SSH Port: %d\n", cont.SSHPort)
+	if cont.WebPort > 0 {
+		fmt.Printf("Web Port: %d (container:3000)\n", cont.WebPort)
+	}
 	// Check if git remote exists
 	remotes, _ := f.GitClient.ListRemotes(".")
 	containerName := strings.TrimPrefix(cont.Name, f.Config.ContainerPrefix+"-")
@@ -359,6 +369,11 @@ func (f *CommandFactory) runInfo(cmd *cobra.Command, args []string) error {
 	fmt.Printf("\nSSH Connection:\n")
 	fmt.Printf("- l8s ssh %s\n", strings.TrimPrefix(cont.Name, f.Config.ContainerPrefix+"-"))
 	fmt.Printf("- ssh -p %d %s@localhost\n", cont.SSHPort, f.Config.ContainerUser)
+	
+	if cont.WebPort > 0 {
+		fmt.Printf("\nWeb Access:\n")
+		fmt.Printf("- http://localhost:%d\n", cont.WebPort)
+	}
 	
 	fmt.Printf("\nSSH Config:\n")
 	fmt.Printf("Host %s\n", cont.Name)
