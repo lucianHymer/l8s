@@ -10,6 +10,7 @@ type Container struct {
 	Name      string
 	Status    string
 	SSHPort   int
+	WebPort   int
 	CreatedAt time.Time
 	Labels    map[string]string
 }
@@ -18,6 +19,7 @@ type Container struct {
 type ContainerConfig struct {
 	Name          string
 	SSHPort       int
+	WebPort       int
 	SSHPublicKey  string
 	BaseImage     string
 	ContainerUser string
@@ -42,6 +44,7 @@ type PodmanClient interface {
 // Config holds configuration for the container manager
 type Config struct {
 	SSHPortStart     int
+	WebPortStart     int
 	BaseImage        string
 	ContainerPrefix  string
 	ContainerUser    string
@@ -57,4 +60,5 @@ type Config struct {
 const (
 	LabelManaged  = "l8s.managed"
 	LabelSSHPort  = "l8s.ssh.port"
+	LabelWebPort  = "l8s.web.port"
 )

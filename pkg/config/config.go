@@ -36,6 +36,7 @@ type Config struct {
 	
 	// Shared settings
 	SSHPortStart    int    `yaml:"ssh_port_start"`
+	WebPortStart    int    `yaml:"web_port_start"`
 	BaseImage       string `yaml:"base_image"`
 	ContainerPrefix string `yaml:"container_prefix"`
 	ContainerUser   string `yaml:"container_user"`
@@ -55,6 +56,7 @@ func DefaultConfig() *Config {
 		
 		// Shared defaults
 		SSHPortStart:    2200,
+		WebPortStart:    3000,
 		BaseImage:       "localhost/l8s-fedora:latest",
 		ContainerPrefix: "dev",
 		SSHPublicKey:    "", // Empty means auto-detect
@@ -91,6 +93,11 @@ func (c *Config) Validate() error {
 	// Validate SSH port start
 	if c.SSHPortStart < 1024 || c.SSHPortStart > 65000 {
 		return fmt.Errorf("ssh_port_start must be between 1024 and 65000")
+	}
+
+	// Validate Web port start
+	if c.WebPortStart < 1024 || c.WebPortStart > 65000 {
+		return fmt.Errorf("web_port_start must be between 1024 and 65000")
 	}
 
 	// Validate base image
