@@ -7,12 +7,7 @@
     "command": "$HOME/.claude/statusline.sh",
     "padding": 0
   },
-  "mcpServers": {
-    "playwright": {
-      "command": "npx",
-      "args": ["-y", "@executeautomation/playwright-mcp-server"]
-    }
-  },
+  "mcpServers": {},
   "hooks": {
     "PreToolUse": [
       {
