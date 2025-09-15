@@ -158,6 +158,10 @@ func (m *MockGitClient) IsGitRepository(path string) bool {
 	return false
 }
 
+func (m *MockGitClient) GetRepositoryRoot(path string) (string, error) {
+	return "", nil
+}
+
 func (m *MockGitClient) PushBranch(repoPath, branch, remoteName string, force bool) error {
 	return nil
 }

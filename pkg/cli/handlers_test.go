@@ -128,6 +128,11 @@ func (m *MockGitClientEnhanced) IsGitRepository(path string) bool {
 	return args.Bool(0)
 }
 
+func (m *MockGitClientEnhanced) GetRepositoryRoot(path string) (string, error) {
+	args := m.Called(path)
+	return args.String(0), args.Error(1)
+}
+
 func (m *MockGitClientEnhanced) PushBranch(repoPath, branch, remoteName string, force bool) error {
 	args := m.Called(repoPath, branch, remoteName, force)
 	return args.Error(0)
