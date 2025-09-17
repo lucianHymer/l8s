@@ -31,6 +31,7 @@ type GitClient interface {
 	GetCurrentBranch(repoPath string) (string, error)
 	ValidateGitURL(gitURL string) error
 	IsGitRepository(path string) bool
+	GetRepositoryRoot(path string) (string, error)
 	PushBranch(repoPath, branch, remoteName string, force bool) error
 	InitRepository(repoPath string, allowPush bool, defaultBranch string) error
 }

@@ -544,6 +544,30 @@ func TestIsGitRepository(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "subdirectory in git repository",
+			setup: func(t *testing.T) string {
+				repoPath := createTestRepo(t)
+				// Create and return a subdirectory path
+				subdir := filepath.Join(repoPath, "subdir", "nested")
+				err := os.MkdirAll(subdir, 0755)
+				require.NoError(t, err)
+				return subdir
+			},
+			expected: true,
+		},
+		{
+			name: "deeply nested subdirectory",
+			setup: func(t *testing.T) string {
+				repoPath := createTestRepo(t)
+				// Create a deeply nested subdirectory
+				deepPath := filepath.Join(repoPath, "a", "b", "c", "d", "e")
+				err := os.MkdirAll(deepPath, 0755)
+				require.NoError(t, err)
+				return deepPath
+			},
+			expected: true,
+		},
+		{
 			name: "regular directory",
 			setup: func(t *testing.T) string {
 				return t.TempDir()
@@ -564,6 +588,85 @@ func TestIsGitRepository(t *testing.T) {
 			path := tt.setup(t)
 			result := IsGitRepository(path)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGetRepositoryRoot(t *testing.T) {
+	tests := []struct {
+		name        string
+		setup       func(t *testing.T) (string, string) // returns (test path, expected root)
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "repository root itself",
+			setup: func(t *testing.T) (string, string) {
+				repoPath := createTestRepo(t)
+				return repoPath, repoPath
+			},
+			wantErr: false,
+		},
+		{
+			name: "subdirectory in repository",
+			setup: func(t *testing.T) (string, string) {
+				repoPath := createTestRepo(t)
+				subdir := filepath.Join(repoPath, "subdir")
+				err := os.MkdirAll(subdir, 0755)
+				require.NoError(t, err)
+				return subdir, repoPath
+			},
+			wantErr: false,
+		},
+		{
+			name: "deeply nested subdirectory",
+			setup: func(t *testing.T) (string, string) {
+				repoPath := createTestRepo(t)
+				deepPath := filepath.Join(repoPath, "a", "b", "c", "d")
+				err := os.MkdirAll(deepPath, 0755)
+				require.NoError(t, err)
+				return deepPath, repoPath
+			},
+			wantErr: false,
+		},
+		{
+			name: "not in a git repository",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				return tempDir, ""
+			},
+			wantErr:     true,
+			errContains: "not in a git repository",
+		},
+		{
+			name: "non-existent directory",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				nonExistent := filepath.Join(tempDir, "does-not-exist")
+				return nonExistent, ""
+			},
+			wantErr:     true,
+			errContains: "failed to find git repository",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testPath, expectedRoot := tt.setup(t)
+			result, err := GetRepositoryRoot(testPath)
+			
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				// Compare absolute paths to handle any symlink resolution
+				absResult, _ := filepath.Abs(result)
+				absExpected, _ := filepath.Abs(expectedRoot)
+				assert.Equal(t, absExpected, absResult)
+			}
 		})
 	}
 }

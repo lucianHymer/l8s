@@ -288,10 +288,45 @@ func GenerateSSHRemoteURL(containerName string, sshPort int, containerUser, repo
 	return fmt.Sprintf("dev-%s:%s", containerName, repoPath)
 }
 
-// IsGitRepository checks if the given path is a git repository
+// IsGitRepository checks if the given path is within a git repository
 func IsGitRepository(path string) bool {
-	_, err := os.Stat(filepath.Join(path, ".git"))
+	_, err := GetRepositoryRoot(path)
 	return err == nil
+}
+
+// GetRepositoryRoot returns the root directory of the git repository containing the given path
+// It uses git rev-parse --show-toplevel to find the repository root, which works for:
+// - Main repositories
+// - Git worktrees
+// - Subdirectories within repositories
+func GetRepositoryRoot(path string) (string, error) {
+	// Create the command with the working directory set to the given path
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	
+	// Resolve the absolute path to ensure proper working directory
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		// If we can't resolve the path, fall back to using it as-is
+		absPath = path
+	}
+	cmd.Dir = absPath
+	
+	output, err := cmd.Output()
+	if err != nil {
+		// Check if it's a command not found error or a legitimate "not a git repo" error
+		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) > 0 {
+			// Git returned an error message, likely "not a git repository"
+			return "", fmt.Errorf("not in a git repository")
+		}
+		return "", fmt.Errorf("failed to find git repository root: %w", err)
+	}
+	
+	root := strings.TrimSpace(string(output))
+	if root == "" {
+		return "", fmt.Errorf("git rev-parse returned empty output")
+	}
+	
+	return root, nil
 }
 
 // PushBranch pushes a branch to a remote

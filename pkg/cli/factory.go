@@ -246,6 +246,10 @@ func (g *gitClientAdapter) IsGitRepository(path string) bool {
 	return git.IsGitRepository(path)
 }
 
+func (g *gitClientAdapter) GetRepositoryRoot(path string) (string, error) {
+	return git.GetRepositoryRoot(path)
+}
+
 func (g *gitClientAdapter) PushBranch(repoPath, branch, remoteName string, force bool) error {
 	return git.PushBranch(repoPath, branch, remoteName, force)
 }
