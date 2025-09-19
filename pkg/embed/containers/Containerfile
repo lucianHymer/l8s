@@ -89,7 +89,8 @@ RUN dnf update -y && \
         golang \
         rust \
         cargo \
-        dnf5-plugins && \
+        dnf5-plugins \
+        socat && \
     dnf clean all
 
 # Install GitHub CLI from official repository
