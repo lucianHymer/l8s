@@ -15,3 +15,8 @@ The feature follows the exact same pattern as SSH port mapping which was already
 **Files**: pkg/config/config.go, pkg/container/types.go, pkg/container/manager.go, pkg/container/podman_client.go, pkg/cli/handlers.go
 ---
 
+### [13:10] [gotcha] containerfiles location
+**Details**: The Containerfiles are located in pkg/embed/containers/, not pkg/containerfiles/. The main Containerfile is at pkg/embed/containers/Containerfile.
+**Files**: pkg/embed/containers/Containerfile
+---
+

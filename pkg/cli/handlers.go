@@ -1084,6 +1084,9 @@ func (f *CommandFactory) runStatus(cmd *cobra.Command, args []string) error {
 	color.Printf("{cyan}Container:{reset} {bold}%s{reset}\n", fullName)
 	color.Printf("{cyan}Status:{reset} %s\n", formatStatus(container.Status))
 	color.Printf("{cyan}SSH Port:{reset} %d\n", container.SSHPort)
+	if container.WebPort > 0 {
+		color.Printf("{cyan}Web Port:{reset} %d\n", container.WebPort)
+	}
 	color.Printf("{cyan}Created:{reset} %s\n", container.CreatedAt.Format("2006-01-02 15:04:05"))
 	
 	// Check git remote
