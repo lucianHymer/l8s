@@ -279,10 +279,10 @@ func TestCopyEmbeddedDotfiles(t *testing.T) {
 	// Verify that CopyToContainer was called for various dotfiles
 	expectedFiles := []string{
 		".bashrc",
-		".gitconfig", 
+		".gitconfig",
 		".zshrc",
 		".claude/settings.json",
-		".config/nvim/init.vim",
+		".config/nvim/init.lua",
 	}
 	
 	for _, file := range expectedFiles {

@@ -91,8 +91,8 @@ command! -bang -nargs=? -complete=dir Files
 ]])
 
 -- FZF keymaps
-vim.keymap.set('n', '<leader><leader>', ':Files<CR>')
-vim.keymap.set('n', '<leader><space>', ':Buffers<CR>')
+vim.keymap.set('n', '<C-P>', ':Files<CR>')
+vim.keymap.set('n', '<leader><C-P>', ':Buffers<CR>')
 
 -- Automatically reload files when changed externally
 vim.api.nvim_create_autocmd({"FocusGained", "BufEnter", "CursorHold", "CursorHoldI"}, {
