@@ -149,7 +149,7 @@ EOF
 _team() {
     local -a subcmds sessions
     subcmds=('ls:List active sessions' 'attach:Attach to existing session' 'create:Create new session' 'help:Show help')
-    
+
     if (( CURRENT == 2 )); then
         _describe 'command' subcmds
     elif (( CURRENT == 3 )) && [[ "$words[2]" == "attach" ]]; then
@@ -168,3 +168,24 @@ _team() {
     fi
 }
 compdef _team team
+
+# Ripgrep + FZF + Neovim integration
+# Usage: r <pattern> [rg options]
+# Search for pattern with ripgrep, preview with bat, open in neovim
+r() {
+  local result file line
+  result=$(
+    rg --line-number --no-heading --color=always "$@" | \
+      fzf --ansi \
+          --delimiter ':' \
+          --preview 'bat --color=always --highlight-line {2} {1}' \
+          --preview-window '+{2}/2'
+  )
+
+  [[ -z "$result" ]] && return
+
+  file=$(echo "$result" | cut -d: -f1)
+  line=$(echo "$result" | cut -d: -f2)
+
+  nvim +"$line" "$file"
+}
