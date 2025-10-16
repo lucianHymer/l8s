@@ -9,6 +9,7 @@ CYAN='\033[0;96m'     # Bright cyan for team session
 YELLOW='\033[0;93m'   # Bright yellow for path
 PURPLE='\033[0;95m'   # Bright purple for output style
 GRAY='\033[0;90m'     # Gray for separators
+GREEN='\033[0;92m'    # Bright green for model name
 RESET='\033[0m'       # Reset color
 
 # Read JSON input from stdin
@@ -21,6 +22,17 @@ if command -v jq &> /dev/null 2>&1; then
 fi
 if [ -z "$cwd" ]; then
     cwd="$PWD"
+fi
+
+# Extract model display name from JSON input using jq
+model_display=""
+if command -v jq &> /dev/null 2>&1; then
+    model_display=$(echo "$json_input" | jq -r '.model.display_name // empty' 2>/dev/null)
+fi
+
+# Format model display with brackets if available
+if [ -n "$model_display" ]; then
+    model_display=" ${GREEN}[${model_display}]${RESET}"
 fi
 
 # Simplify path - handle both home and root directories properly
@@ -78,6 +90,6 @@ if [ -n "$output_style" ]; then
 fi
 
 # Output the status line with colors matching oh-my-posh
-# Format: 🤖 container[⚒team]:path [style]
+# Format: 🤖 [Model] container[⚒team]:path [style]
 # Using printf with -e to interpret escape sequences
-printf "🤖 ${RED}${container_name}${RESET}${team_session}${GRAY}:${RESET}${YELLOW}${path_display}${RESET}${output_style}\n"
+printf "🤖${model_display} ${RED}${container_name}${RESET}${team_session}${GRAY}:${RESET}${YELLOW}${path_display}${RESET}${output_style}\n"
