@@ -71,19 +71,24 @@ rl.on('line', (line) => {
             respond(request.id, {
                 tools: [{
                     name: 'remember',
-                    description: `Capture learned information about the project for automatic documentation. Use PROACTIVELY when discovering architecture, patterns, dependencies, workflows, configurations, or surprising behaviors.
+                    description: `Capture project discoveries and learnings for persistent documentation. Automatically preserves knowledge about architecture, patterns, workflows, dependencies, configurations, and unique behaviors.
 
-⚠️ MANDATORY TRIGGERS - Use this tool IMMEDIATELY when:
-• You say/think: "for future reference", "I learned that", "turns out", "actually it's", "I discovered", "good to know", "I see that", "interesting that"
-• You made a mistake and learned the correct approach
-• You discovered how something actually works (vs what you assumed)
-• You found a project-specific convention, pattern, or requirement
-• You figured out why something wasn't working
-• You're about to explain something important about this codebase
-• You realize your initial assumption was wrong
+🎯 USE THIS TOOL when you:
+• Discover how something works in this project
+• Learn project-specific patterns or conventions
+• Find configuration details or requirements
+• Understand architecture or system design
+• Encounter non-obvious behaviors or gotchas
+• Figure out dependencies or integrations
+• Realize your assumptions were incorrect
 
-❌ BAD: Saying "for future reference, use yarn not npm" without using this tool
-✅ GOOD: Immediately remembering this knowledge when you realize it`,
+💡 KEY TRIGGERS - phrases that signal discovery:
+"I learned that", "turns out", "actually it's", "I discovered", "for future reference", "good to know", "interesting that"
+
+⚡ ALWAYS CAPTURE project-specific knowledge immediately - this creates the persistent memory that survives context resets.
+
+✓ Examples: Database schema conventions, API authentication flows, build system quirks
+✗ Skip: Current bug fixes, temporary debug output, generic programming concepts`,
                     inputSchema: {
                         type: 'object',
                         properties: {

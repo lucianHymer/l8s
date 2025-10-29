@@ -11,11 +11,13 @@
 - @architecture/ssh_default_directory.md - Application-level workspace navigation
 - @architecture/host_integration_embedding.md - Binary embedding system for host tools
 - @architecture/zsh_plugin_duplication.md - Dual plugin locations requiring sync
+- @architecture/team_session_management.md - Persistent sessions with dtach
 
 ## 📐 Patterns
 
 - @patterns/cobra_command_structure.md - Consistent command implementation pattern
 - @patterns/container_manager_interface.md - Adding new container operations
+- @patterns/standalone_scripts_for_ssh.md - Executable scripts vs shell functions
 
 ## ✨ Features
 
@@ -24,6 +26,7 @@
 - @features/ssh_certificate_authority.md - Secure container connections with CA
 - @features/github_cli_origin_remote.md - Automatic origin remote replication for gh CLI
 - @features/slash_commands.md - Custom Claude Code commands for development workflows
+- @features/web_port_forwarding.md - Automatic port 3000 forwarding for web apps
 
 ## 🔒 Security
 
@@ -38,6 +41,7 @@
 ## 🔧 Configuration
 
 - @config/github_token.md - Fine-grained personal access tokens for development
+- @config/ssh_connection_stability.md - Enhanced keepalive settings
 
 ## 📦 Dependencies
 
@@ -53,3 +57,5 @@
 - @gotchas/mcp_server_protocol_error.md - Mim MCP server validation errors
 - @gotchas/zsh_plugin_missing_from_embedded.md - Container tab completion broken
 - @gotchas/claude_code_at_syntax.md - @ syntax limitations in slash commands
+- @gotchas/containerfiles_location.md - Files in pkg/embed/containers/ not pkg/containerfiles/
+- @gotchas/ssh_path_dependency.md - Non-interactive SSH PATH issues

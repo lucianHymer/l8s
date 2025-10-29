@@ -51,6 +51,13 @@ CI uses build tags to exclude optional dependencies:
 
 These reduce binary size and compilation requirements.
 
+### Running Tests Without System Dependencies
+
+When system dependencies like gpgme or btrfs are missing, tests can still run using build tags. The Makefile already handles this:
+- `make test` and `make test-go` automatically use `-tags exclude_graphdriver_btrfs,exclude_graphdriver_devicemapper`
+- This allows testing even without full Podman dependencies installed locally
+- No special configuration needed - the Makefile handles it automatically
+
 ## Troubleshooting
 
 1. **Fix compilation errors first** - Can't run tests if code doesn't compile
