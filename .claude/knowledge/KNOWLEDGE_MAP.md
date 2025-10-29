@@ -61,6 +61,7 @@
 - [Claude Code @ Syntax](gotchas/claude_code_at_syntax.md) - @ syntax limitations in slash commands
 - [Containerfiles Location](gotchas/containerfiles_location.md) - Files in pkg/embed/containers/ not pkg/containerfiles/ *(New: 2025-10-29)*
 - [SSH PATH Dependency](gotchas/ssh_path_dependency.md) - Non-interactive SSH PATH issues *(New: 2025-10-29)*
+- [Dotfiles Missing on Rebuild](gotchas/dotfiles_missing_on_rebuild.md) - Dotfiles not redeployed during container rebuild *(New: 2025-10-29)*
 
 ---
 

@@ -68,7 +68,7 @@ case "$cmd" in
         fi
         encoded=$(echo -n "$name" | base64 | tr -d '\n')
         socket="/tmp/dtach-$encoded.sock"
-        DTACH_SESSION="$name" dtach -A "$socket" -z /bin/zsh
+        DTACH_SESSION="$name" dtach -A "$socket" -z /bin/zsh -l
         ;;
 
     *)
@@ -76,6 +76,6 @@ case "$cmd" in
         name="$cmd"
         encoded=$(echo -n "$name" | base64 | tr -d '\n')
         socket="/tmp/dtach-$encoded.sock"
-        DTACH_SESSION="$name" dtach -A "$socket" -z /bin/zsh
+        DTACH_SESSION="$name" dtach -A "$socket" -z /bin/zsh -l
         ;;
 esac

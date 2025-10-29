@@ -59,3 +59,4 @@
 - @gotchas/claude_code_at_syntax.md - @ syntax limitations in slash commands
 - @gotchas/containerfiles_location.md - Files in pkg/embed/containers/ not pkg/containerfiles/
 - @gotchas/ssh_path_dependency.md - Non-interactive SSH PATH issues
+- @gotchas/dotfiles_missing_on_rebuild.md - Dotfiles not redeployed during container rebuild
