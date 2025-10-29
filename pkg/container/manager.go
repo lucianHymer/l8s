@@ -888,10 +888,19 @@ func (m *Manager) RebuildContainer(ctx context.Context, name string) error {
 			logging.WithError(err),
 			logging.WithField("container", containerName))
 	}
-	
+
+	// Step 9: Redeploy dotfiles to pick up any new files or changes
+	// This ensures new dotfiles like the team script are deployed
+	if err := m.copyDotfiles(ctx, containerName); err != nil {
+		// Log error but don't fail container rebuild
+		m.logger.Warn("failed to copy dotfiles during rebuild",
+			logging.WithError(err),
+			logging.WithField("container", containerName))
+	}
+
 	m.logger.Info("container rebuilt successfully",
 		logging.WithField("container", containerName),
 		logging.WithField("ssh_port", sshPort))
-	
+
 	return nil
 }
