@@ -84,7 +84,11 @@ func GenerateSSHConfigEntry(containerName string, sshPort int, containerUser, pr
     UserKnownHostsFile %s
     ControlMaster auto
     ControlPath ~/.ssh/control-%%r@%%h:%%p
-    ControlPersist 10m
+    ControlPersist 1h
+    ServerAliveInterval 30
+    ServerAliveCountMax 6
+    ConnectTimeout 10
+    TCPKeepAlive yes
 `, hostAlias, remoteHost, sshPort, containerUser, knownHostsPath)
 	}
 
@@ -97,7 +101,11 @@ func GenerateSSHConfigEntry(containerName string, sshPort int, containerUser, pr
     UserKnownHostsFile /dev/null
     ControlMaster auto
     ControlPath ~/.ssh/control-%%r@%%h:%%p
-    ControlPersist 10m
+    ControlPersist 1h
+    ServerAliveInterval 30
+    ServerAliveCountMax 6
+    ConnectTimeout 10
+    TCPKeepAlive yes
 `, hostAlias, remoteHost, sshPort, containerUser)
 }
 

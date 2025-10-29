@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/juju/ansiterm"
+	"github.com/spf13/cobra"
 	"l8s/pkg/color"
 	"l8s/pkg/config"
 	"l8s/pkg/embed"
 	"l8s/pkg/ssh"
-	"github.com/spf13/cobra"
 )
 
 // runCreate handles the create command
@@ -25,7 +25,7 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 	if !f.GitClient.IsGitRepository(".") {
 		return fmt.Errorf("l8s create must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
 	}
-	
+
 	// Generate container name from worktree
 	fullName, err := GetContainerNameFromWorktree(f.Config.ContainerPrefix)
 	if err != nil {
@@ -34,14 +34,14 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 	// Remove prefix for the short name (used in git remotes, etc.)
 	// fullName is like "dev-myrepo-a3f2d1", shortName is "myrepo-a3f2d1"
 	shortName := fullName[len(f.Config.ContainerPrefix)+1:]
-	
+
 	// Check if container already exists
 	ctx := context.Background()
 	existingContainer, err := f.ContainerMgr.GetContainerInfo(ctx, shortName)
 	if err == nil && existingContainer != nil {
 		return fmt.Errorf("container '%s' already exists for this worktree\nUse 'l8s ssh' to connect or 'l8s rm' to remove it first", fullName)
 	}
-	
+
 	// Get branch from flag or use current branch
 	branch, _ := cmd.Flags().GetString("branch")
 	if branch == "" {
@@ -67,7 +67,7 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 		}
 		sshKey = key
 	}
-	
+
 	// Validate SSH key
 	if err := f.SSHClient.ValidatePublicKey(sshKey); err != nil {
 		return fmt.Errorf("invalid SSH public key: %w", err)
@@ -75,7 +75,7 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 
 	// Create container with empty git URL
 	color.Printf("🎳 {cyan}Creating container:{reset} {bold}%s{reset}\n", fullName)
-	
+
 	cont, err := f.ContainerMgr.CreateContainer(ctx, shortName, sshKey)
 	if err != nil {
 		return err
@@ -131,7 +131,7 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 	color.Printf("{green}✓{reset} Git remote '{bold}%s{reset}' added\n", shortName)
 	color.Printf("{green}✓{reset} Pushed {bold}%s{reset} branch (HEAD: %s) to container\n", branch, getShortCommitHash())
 	color.Printf("{green}✓{reset} Container ready with your code\n")
-	
+
 	color.Printf("\n{cyan}Connection options:{reset}\n")
 	color.Printf("- {bold}l8s ssh{reset} (from this worktree)\n")
 	color.Printf("- {bold}ssh %s{reset}\n", fullName)
@@ -157,7 +157,7 @@ func (f *CommandFactory) runSSH(cmd *cobra.Command, args []string) error {
 	if !f.GitClient.IsGitRepository(".") {
 		return fmt.Errorf("l8s ssh must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
 	}
-	
+
 	// Generate container name from worktree
 	fullName, err := GetContainerNameFromWorktree(f.Config.ContainerPrefix)
 	if err != nil {
@@ -165,7 +165,7 @@ func (f *CommandFactory) runSSH(cmd *cobra.Command, args []string) error {
 	}
 	// Remove prefix for the short name
 	shortName := fullName[len(f.Config.ContainerPrefix)+1:]
-	
+
 	ctx := context.Background()
 	return f.ContainerMgr.SSHIntoContainer(ctx, shortName)
 }
@@ -182,13 +182,13 @@ func (f *CommandFactory) runList(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(cmd.OutOrStdout(), "No l8s containers found")
 		return nil
 	}
-	
+
 	// Check if we're in a git repository and get the expected container name
 	expectedContainerName := GetExpectedContainerName(f.Config.ContainerPrefix)
 
 	// Create color-aware table writer using juju/ansiterm
 	w := ansiterm.NewTabWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
-	
+
 	// Print header in bold
 	if os.Getenv("NO_COLOR") == "" {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
@@ -209,22 +209,22 @@ func (f *CommandFactory) runList(cmd *cobra.Command, args []string) error {
 		containerName := strings.TrimPrefix(c.Name, f.Config.ContainerPrefix+"-")
 		_, hasRemote := remotes[containerName]
 		gitRemote := formatGitStatus(hasRemote)
-		
+
 		created := formatDuration(time.Since(c.CreatedAt))
 		status := formatStatus(c.Status)
-		
+
 		// Mark the current worktree's container with an arrow
 		marker := " "
 		if expectedContainerName != "" && c.Name == expectedContainerName {
 			marker = "→"
 		}
-		
+
 		webPort := "-"
 		if c.WebPort > 0 {
 			webPort = fmt.Sprintf("%d", c.WebPort)
 		}
-		
-		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\t%s\n", 
+
+		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\t%s\n",
 			marker,
 			c.Name,
 			status,
@@ -234,26 +234,26 @@ func (f *CommandFactory) runList(cmd *cobra.Command, args []string) error {
 			created,
 		)
 	}
-	
+
 	if expectedContainerName != "" {
 		w.Flush()
 		fmt.Fprintln(cmd.OutOrStdout())
 		color.Printf("{cyan}→{reset} Current worktree container\n")
 	}
-	
+
 	return w.Flush()
 }
 
 // runStart handles the start command
 func (f *CommandFactory) runStart(cmd *cobra.Command, args []string) error {
 	name := args[0]
-	
+
 	ctx := context.Background()
 	err := f.ContainerMgr.StartContainer(ctx, name)
 	if err != nil {
 		return err
 	}
-	
+
 	color.Printf("{green}✓{reset} Container '{bold}%s{reset}' started\n", name)
 	return nil
 }
@@ -261,13 +261,13 @@ func (f *CommandFactory) runStart(cmd *cobra.Command, args []string) error {
 // runStop handles the stop command
 func (f *CommandFactory) runStop(cmd *cobra.Command, args []string) error {
 	name := args[0]
-	
+
 	ctx := context.Background()
 	err := f.ContainerMgr.StopContainer(ctx, name)
 	if err != nil {
 		return err
 	}
-	
+
 	color.Printf("{green}✓{reset} Container '{bold}%s{reset}' stopped\n", name)
 	return nil
 }
@@ -278,7 +278,7 @@ func (f *CommandFactory) runRemove(cmd *cobra.Command, args []string) error {
 	if !f.GitClient.IsGitRepository(".") {
 		return fmt.Errorf("l8s remove must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
 	}
-	
+
 	// Generate container name from worktree
 	fullName, err := GetContainerNameFromWorktree(f.Config.ContainerPrefix)
 	if err != nil {
@@ -286,11 +286,11 @@ func (f *CommandFactory) runRemove(cmd *cobra.Command, args []string) error {
 	}
 	// Remove prefix for the short name
 	name := fullName[len(f.Config.ContainerPrefix)+1:]
-	
+
 	// Get flags
 	force, _ := cmd.Flags().GetBool("force")
 	keepVolumes, _ := cmd.Flags().GetBool("keep-volumes")
-	
+
 	// Confirm removal unless --force is specified
 	if !force {
 		reader := bufio.NewReader(os.Stdin)
@@ -300,21 +300,21 @@ func (f *CommandFactory) runRemove(cmd *cobra.Command, args []string) error {
 		}
 		prompt += "? (y/N): "
 		fmt.Print(prompt)
-		
+
 		response, err := reader.ReadString('\n')
 		if err != nil {
 			return err
 		}
-		
+
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "y" && response != "yes" {
 			fmt.Println("Aborted")
 			return nil
 		}
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// Remove git remote
 	currentDir, err := os.Getwd()
 	if err == nil {
@@ -322,34 +322,34 @@ func (f *CommandFactory) runRemove(cmd *cobra.Command, args []string) error {
 		_ = f.GitClient.RemoveRemote(currentDir, name)
 		color.Printf("{green}✓{reset} Git remote removed\n")
 	}
-	
+
 	// Remove container
 	removeVolumes := !keepVolumes
 	err = f.ContainerMgr.RemoveContainer(ctx, name, removeVolumes)
 	if err != nil {
 		return err
 	}
-	
+
 	color.Printf("{green}✓{reset} Container removed\n")
 	if removeVolumes {
 		color.Printf("{green}✓{reset} Volumes removed\n")
 	} else {
 		color.Printf("{yellow}!{reset} Volumes kept\n")
 	}
-	
+
 	return nil
 }
 
 // runInfo handles the info command
 func (f *CommandFactory) runInfo(cmd *cobra.Command, args []string) error {
 	name := args[0]
-	
+
 	ctx := context.Background()
 	cont, err := f.ContainerMgr.GetContainerInfo(ctx, name)
 	if err != nil {
 		return err
 	}
-	
+
 	fmt.Printf("Container: %s\n", cont.Name)
 	fmt.Printf("Status: %s\n", cont.Status)
 	fmt.Printf("SSH Port: %d\n", cont.SSHPort)
@@ -365,16 +365,16 @@ func (f *CommandFactory) runInfo(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Git Remote: (none)\n")
 	}
 	fmt.Printf("Created: %s\n", cont.CreatedAt.Format(time.RFC3339))
-	
+
 	fmt.Printf("\nSSH Connection:\n")
 	fmt.Printf("- l8s ssh %s\n", strings.TrimPrefix(cont.Name, f.Config.ContainerPrefix+"-"))
 	fmt.Printf("- ssh -p %d %s@localhost\n", cont.SSHPort, f.Config.ContainerUser)
-	
+
 	if cont.WebPort > 0 {
 		fmt.Printf("\nWeb Access:\n")
 		fmt.Printf("- http://localhost:%d\n", cont.WebPort)
 	}
-	
+
 	fmt.Printf("\nSSH Config:\n")
 	fmt.Printf("Host %s\n", cont.Name)
 	fmt.Printf("    HostName localhost\n")
@@ -382,20 +382,20 @@ func (f *CommandFactory) runInfo(cmd *cobra.Command, args []string) error {
 	fmt.Printf("    User %s\n", f.Config.ContainerUser)
 	fmt.Printf("    StrictHostKeyChecking no\n")
 	fmt.Printf("    UserKnownHostsFile /dev/null\n")
-	
+
 	return nil
 }
 
 // runBuild handles the build command
 func (f *CommandFactory) runBuild(cmd *cobra.Command, args []string) error {
 	fmt.Println("Building l8s base image...")
-	
+
 	ctx := context.Background()
-	err := f.ContainerMgr.BuildImage(ctx, "")  // Empty string since we no longer use containerfile param
+	err := f.ContainerMgr.BuildImage(ctx, "") // Empty string since we no longer use containerfile param
 	if err != nil {
 		return err
 	}
-	
+
 	color.Printf("{green}✓{reset} Image built successfully\n")
 	return nil
 }
@@ -403,26 +403,26 @@ func (f *CommandFactory) runBuild(cmd *cobra.Command, args []string) error {
 // runRemoteAdd handles the remote add command
 func (f *CommandFactory) runRemoteAdd(cmd *cobra.Command, args []string) error {
 	name := args[0]
-	
+
 	ctx := context.Background()
 	cont, err := f.ContainerMgr.GetContainerInfo(ctx, name)
 	if err != nil {
 		return err
 	}
-	
+
 	// Get current directory
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
-	
+
 	// Add remote
 	remoteURL := fmt.Sprintf("ssh://%s@localhost:%d/workspace/project", f.Config.ContainerUser, cont.SSHPort)
 	err = f.GitClient.AddRemote(currentDir, name, remoteURL)
 	if err != nil {
 		return err
 	}
-	
+
 	color.Printf("{green}✓{reset} Git remote '{bold}%s{reset}' added\n", name)
 	return nil
 }
@@ -430,19 +430,19 @@ func (f *CommandFactory) runRemoteAdd(cmd *cobra.Command, args []string) error {
 // runRemoteRemove handles the remote remove command
 func (f *CommandFactory) runRemoteRemove(cmd *cobra.Command, args []string) error {
 	name := args[0]
-	
+
 	// Get current directory
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
-	
+
 	// Remove remote
 	err = f.GitClient.RemoveRemote(currentDir, name)
 	if err != nil {
 		return err
 	}
-	
+
 	color.Printf("{green}✓{reset} Git remote '{bold}%s{reset}' removed\n", name)
 	return nil
 }
@@ -453,7 +453,7 @@ func (f *CommandFactory) runExec(cmd *cobra.Command, args []string) error {
 	if !f.GitClient.IsGitRepository(".") {
 		return fmt.Errorf("l8s exec must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
 	}
-	
+
 	// Generate container name from worktree
 	fullName, err := GetContainerNameFromWorktree(f.Config.ContainerPrefix)
 	if err != nil {
@@ -461,10 +461,10 @@ func (f *CommandFactory) runExec(cmd *cobra.Command, args []string) error {
 	}
 	// Remove prefix for the short name
 	name := fullName[len(f.Config.ContainerPrefix)+1:]
-	
+
 	// The command is all the arguments
 	command := args
-	
+
 	ctx := context.Background()
 	return f.ContainerMgr.ExecContainer(ctx, name, command)
 }
@@ -567,7 +567,7 @@ func formatStatus(status string) string {
 	if os.Getenv("NO_COLOR") != "" {
 		return status
 	}
-	
+
 	switch status {
 	case "running":
 		return color.Green + status + color.Reset
@@ -588,7 +588,7 @@ func formatGitStatus(hasGit bool) string {
 		}
 		return "✗"
 	}
-	
+
 	if hasGit {
 		return color.Green + "✓" + color.Reset
 	}
@@ -606,13 +606,13 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 	// Create config with defaults
 	cfg := config.DefaultConfig()
 	configDir := filepath.Dir(config.GetConfigPath())
-	
+
 	// Initialize the default connection
 	connCfg := config.ConnectionConfig{}
 
 	// Prompt for connection configuration
 	fmt.Println("=== Connection Configuration ===")
-	
+
 	address, err := promptWithDefault("Server IP address or hostname", "")
 	if err != nil {
 		return err
@@ -622,32 +622,32 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 	}
 	connCfg.Address = address
 	connCfg.Description = "Default connection"
-	
+
 	// Prompt for host configuration (same for all connections)
 	fmt.Println("\n=== Host Configuration ===")
-	
+
 	remoteUser, err := promptWithDefault("Remote server username", "podman")
 	if err != nil {
 		return err
 	}
 	cfg.RemoteUser = remoteUser
-	
+
 	// Show sudo setup instructions for non-root users
 	if remoteUser != "root" {
 		fmt.Printf("\n📝 Note: Using non-root user '%s'. You'll need to set up sudo access:\n", remoteUser)
 		fmt.Printf("   On the remote server, run:\n")
 		fmt.Printf("   echo \"%s ALL=(ALL) NOPASSWD: /usr/bin/podman\" | sudo tee /etc/sudoers.d/podman\n\n", remoteUser)
 	}
-	
+
 	remoteSocket, err := promptWithDefault("Remote Podman socket path", "/run/podman/podman.sock")
 	if err != nil {
 		return err
 	}
 	cfg.RemoteSocket = remoteSocket
-	
+
 	// Test SSH connectivity
 	fmt.Printf("\nTesting SSH connection to %s@%s...\n", cfg.RemoteUser, connCfg.Address)
-	testCmd := exec.Command("ssh", "-o", "ConnectTimeout=5", 
+	testCmd := exec.Command("ssh", "-o", "ConnectTimeout=5",
 		fmt.Sprintf("%s@%s", cfg.RemoteUser, connCfg.Address), "echo", "OK")
 	output, err := testCmd.CombinedOutput()
 	if err != nil {
@@ -664,10 +664,10 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("SSH connection test failed")
 	}
 	color.Printf("{green}✓{reset} SSH connection successful\n")
-	
+
 	// Prompt for other configuration
 	fmt.Println("\n=== Container Configuration ===")
-	
+
 	sshKeyPath, err := promptWithDefault("SSH private key path", "")
 	if err != nil {
 		return err
@@ -675,29 +675,29 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 	if sshKeyPath != "" {
 		cfg.SSHKeyPath = sshKeyPath
 	}
-	
+
 	// Add the connection configuration
 	cfg.Connections["default"] = connCfg
 	cfg.ActiveConnection = "default"
-	
+
 	baseImage, err := promptWithDefault("Base container image", cfg.BaseImage)
 	if err != nil {
 		return err
 	}
 	cfg.BaseImage = baseImage
-	
+
 	containerPrefix, err := promptWithDefault("Container name prefix", cfg.ContainerPrefix)
 	if err != nil {
 		return err
 	}
 	cfg.ContainerPrefix = containerPrefix
-	
+
 	containerUser, err := promptWithDefault("Container user", cfg.ContainerUser)
 	if err != nil {
 		return err
 	}
 	cfg.ContainerUser = containerUser
-	
+
 	sshPortStart, err := promptWithDefault("SSH port range start", fmt.Sprintf("%d", cfg.SSHPortStart))
 	if err != nil {
 		return err
@@ -705,7 +705,7 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 	if _, err := fmt.Sscanf(sshPortStart, "%d", &cfg.SSHPortStart); err != nil {
 		return fmt.Errorf("invalid port number: %w", err)
 	}
-	
+
 	// Auto-detect SSH public key if not specified
 	if cfg.SSHPublicKey == "" {
 		fmt.Println("\nDetecting SSH public key...")
@@ -716,7 +716,7 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 			"~/.ssh/id_rsa.pub",
 			"~/.ssh/id_ecdsa.pub",
 		}
-		
+
 		for _, keyPath := range possibleKeys {
 			expandedPath := expandPath(keyPath)
 			if _, err := os.Stat(expandedPath); err == nil {
@@ -725,7 +725,7 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 				break
 			}
 		}
-		
+
 		if cfg.SSHPublicKey == "" {
 			pubKeyPath, err := promptWithDefault("SSH public key path", "~/.ssh/id_ed25519.pub")
 			if err != nil {
@@ -734,16 +734,16 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 			cfg.SSHPublicKey = pubKeyPath
 		}
 	}
-	
+
 	// Generate SSH CA
 	fmt.Println("\n=== SSH Certificate Authority Setup ===")
 	fmt.Println("Generating SSH CA for secure container connections...")
-	
+
 	ca, err := ssh.NewCA(configDir)
 	if err != nil {
 		return fmt.Errorf("failed to initialize CA: %w", err)
 	}
-	
+
 	if !ca.Exists() {
 		if err := ca.Generate(); err != nil {
 			return fmt.Errorf("failed to generate CA: %w", err)
@@ -752,27 +752,27 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 	} else {
 		color.Printf("{yellow}!{reset} Using existing SSH CA\n")
 	}
-	
+
 	// Store CA paths in config
 	cfg.CAPrivateKeyPath = ca.PrivateKeyPath
 	cfg.CAPublicKeyPath = ca.PublicKeyPath
 	cfg.KnownHostsPath = filepath.Join(configDir, "known_hosts")
-	
+
 	// Create known_hosts file with CA entry
 	if err := ca.WriteKnownHostsEntry(cfg.KnownHostsPath, connCfg.Address); err != nil {
 		return fmt.Errorf("failed to create known_hosts: %w", err)
 	}
 	color.Printf("{green}✓{reset} Created CA trust configuration\n")
-	
+
 	// GitHub token configuration
 	fmt.Println("\n=== GitHub CLI Configuration (Optional) ===")
 	fmt.Println("Configure GitHub access for creating PRs, issues, and viewing code.")
 	fmt.Print("Would you like to configure a GitHub token? (y/n) [n]: ")
-	
+
 	reader := bufio.NewReader(os.Stdin)
 	response, _ := reader.ReadString('\n')
 	response = strings.TrimSpace(strings.ToLower(response))
-	
+
 	if response == "y" || response == "yes" {
 		fmt.Println("\nTo create a fine-grained personal access token:")
 		fmt.Println("1. Open: https://github.com/settings/personal-access-tokens/new")
@@ -786,12 +786,12 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 		fmt.Println("   - Metadata: Read (auto-selected)")
 		fmt.Println("5. Generate and copy the token")
 		fmt.Println()
-		
+
 		tokenInput, err := promptWithDefault("GitHub token (starts with github_pat_)", "")
 		if err != nil {
 			return err
 		}
-		
+
 		tokenInput = strings.TrimSpace(tokenInput)
 		if tokenInput != "" {
 			// Basic validation
@@ -803,15 +803,15 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 			color.Printf("{green}✓{reset} GitHub token configured\n")
 		}
 	}
-	
+
 	// Save configuration
 	configPath := config.GetConfigPath()
 	fmt.Printf("\nSaving configuration to %s...\n", configPath)
-	
+
 	if err := cfg.Save(configPath); err != nil {
 		return fmt.Errorf("failed to save configuration: %w", err)
 	}
-	
+
 	fmt.Println("\n=== Configuration Complete ===")
 	fmt.Printf("Configuration saved to: %s\n", configPath)
 	color.Printf("{green}✓{reset} SSH CA configured for secure connections\n")
@@ -822,30 +822,30 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf("2. Run 'l8s create <name>' to create your first container (from within a git repository)\n")
 	fmt.Printf("3. Use 'l8s list' to see all containers\n")
-	
+
 	return nil
 }
 
 // promptWithDefault prompts the user for input with a default value
 func promptWithDefault(prompt, defaultValue string) (string, error) {
 	reader := bufio.NewReader(os.Stdin)
-	
+
 	if defaultValue != "" {
 		fmt.Printf("%s [%s]: ", prompt, defaultValue)
 	} else {
 		fmt.Printf("%s: ", prompt)
 	}
-	
+
 	input, err := reader.ReadString('\n')
 	if err != nil {
 		return "", err
 	}
-	
+
 	input = strings.TrimSpace(input)
 	if input == "" && defaultValue != "" {
 		return defaultValue, nil
 	}
-	
+
 	return input, nil
 }
 
@@ -875,7 +875,7 @@ func (f *CommandFactory) runRebuild(cmd *cobra.Command, args []string) error {
 	if !f.GitClient.IsGitRepository(".") {
 		return fmt.Errorf("l8s rebuild must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
 	}
-	
+
 	// Generate container name from worktree
 	fullName, err := GetContainerNameFromWorktree(f.Config.ContainerPrefix)
 	if err != nil {
@@ -883,29 +883,29 @@ func (f *CommandFactory) runRebuild(cmd *cobra.Command, args []string) error {
 	}
 	// Remove prefix for the short name
 	name := fullName[len(f.Config.ContainerPrefix)+1:]
-	
+
 	// Get flags
 	build, _ := cmd.Flags().GetBool("build")
 	skipBuild, _ := cmd.Flags().GetBool("skip-build")
-	
+
 	// Validate mutually exclusive flags
 	if build && skipBuild {
 		return fmt.Errorf("--build and --skip-build are mutually exclusive")
 	}
-	
+
 	return f.HandleRebuild(name, build, skipBuild)
 }
 
 // HandleRebuild handles the rebuild command
 func (f *CommandFactory) HandleRebuild(name string, build, skipBuild bool) error {
 	ctx := context.Background()
-	
+
 	// Step 1: Get current container info to verify it exists
 	_, err := f.ContainerMgr.GetContainerInfo(ctx, name)
 	if err != nil {
 		return fmt.Errorf("container '%s' not found: %w", name, err)
 	}
-	
+
 	// Step 2: Handle image build decision
 	var shouldBuild bool
 	if !build && !skipBuild {
@@ -921,7 +921,7 @@ func (f *CommandFactory) HandleRebuild(name string, build, skipBuild bool) error
 	} else {
 		shouldBuild = build
 	}
-	
+
 	// Step 3: Build image if requested
 	if shouldBuild {
 		fmt.Println("Building l8s base image...")
@@ -930,19 +930,19 @@ func (f *CommandFactory) HandleRebuild(name string, build, skipBuild bool) error
 		}
 		color.Printf("{green}✓{reset} Image built successfully\n")
 	}
-	
+
 	// Step 4: Execute rebuild
 	color.Printf("🎳 {cyan}Rebuilding container:{reset} {bold}%s-%s{reset}\n", f.Config.ContainerPrefix, name)
-	
+
 	if err := f.ContainerMgr.RebuildContainer(ctx, name); err != nil {
 		return fmt.Errorf("failed to rebuild container: %w", err)
 	}
-	
+
 	// Step 5: Display success information
 	color.Printf("{green}✓{reset} Container rebuilt successfully!\n")
 	fmt.Printf("\nConnect with:\n")
 	fmt.Printf("  ssh %s-%s\n", f.Config.ContainerPrefix, name)
-	
+
 	return nil
 }
 
@@ -952,13 +952,13 @@ func (f *CommandFactory) runPush(cmd *cobra.Command, args []string) error {
 	if !f.GitClient.IsGitRepository(".") {
 		return fmt.Errorf("l8s push must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
 	}
-	
+
 	// Get current branch
 	branch, err := f.GitClient.GetCurrentBranch(".")
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
-	
+
 	// Generate container name from worktree
 	fullName, err := GetContainerNameFromWorktree(f.Config.ContainerPrefix)
 	if err != nil {
@@ -966,7 +966,7 @@ func (f *CommandFactory) runPush(cmd *cobra.Command, args []string) error {
 	}
 	// Remove prefix for the short name (used as remote name)
 	remoteName := fullName[len(f.Config.ContainerPrefix)+1:]
-	
+
 	// Check if remote exists
 	remotes, err := f.GitClient.ListRemotes(".")
 	if err != nil {
@@ -975,7 +975,7 @@ func (f *CommandFactory) runPush(cmd *cobra.Command, args []string) error {
 	if _, exists := remotes[remoteName]; !exists {
 		return fmt.Errorf("container remote '%s' does not exist\nRun 'l8s create' first to create the container", remoteName)
 	}
-	
+
 	// Push with fast-forward only (no force)
 	color.Printf("{cyan}→{reset} Pushing {bold}%s{reset} branch to container...\n", branch)
 	if err := f.GitClient.PushBranch(".", branch, remoteName, false); err != nil {
@@ -984,7 +984,7 @@ func (f *CommandFactory) runPush(cmd *cobra.Command, args []string) error {
 		}
 		return fmt.Errorf("failed to push branch: %w", err)
 	}
-	
+
 	// Checkout the branch in the container to update the working directory
 	ctx := context.Background()
 	shortName := fullName[len(f.Config.ContainerPrefix)+1:]
@@ -997,7 +997,7 @@ func (f *CommandFactory) runPush(cmd *cobra.Command, args []string) error {
 	} else {
 		color.Printf("{green}✓{reset} Successfully pushed and updated container\n")
 	}
-	
+
 	return nil
 }
 
@@ -1007,13 +1007,13 @@ func (f *CommandFactory) runPull(cmd *cobra.Command, args []string) error {
 	if !f.GitClient.IsGitRepository(".") {
 		return fmt.Errorf("l8s pull must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
 	}
-	
+
 	// Get current branch
 	branch, err := f.GitClient.GetCurrentBranch(".")
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
-	
+
 	// Generate container name from worktree
 	fullName, err := GetContainerNameFromWorktree(f.Config.ContainerPrefix)
 	if err != nil {
@@ -1021,7 +1021,7 @@ func (f *CommandFactory) runPull(cmd *cobra.Command, args []string) error {
 	}
 	// Remove prefix for the short name (used as remote name)
 	remoteName := fullName[len(f.Config.ContainerPrefix)+1:]
-	
+
 	// Check if remote exists
 	remotes, err := f.GitClient.ListRemotes(".")
 	if err != nil {
@@ -1030,7 +1030,7 @@ func (f *CommandFactory) runPull(cmd *cobra.Command, args []string) error {
 	if _, exists := remotes[remoteName]; !exists {
 		return fmt.Errorf("container remote '%s' does not exist\nRun 'l8s create' first to create the container", remoteName)
 	}
-	
+
 	// Fetch from the remote
 	color.Printf("{cyan}→{reset} Fetching changes from container...\n")
 	fetchCmd := exec.Command("git", "fetch", remoteName, branch)
@@ -1039,7 +1039,7 @@ func (f *CommandFactory) runPull(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch from container: %w\nOutput: %s", err, string(output))
 	}
-	
+
 	// Merge with fast-forward only
 	color.Printf("{cyan}→{reset} Merging changes (fast-forward only)...\n")
 	mergeCmd := exec.Command("git", "merge", "--ff-only", fmt.Sprintf("%s/%s", remoteName, branch))
@@ -1051,7 +1051,7 @@ func (f *CommandFactory) runPull(cmd *cobra.Command, args []string) error {
 		}
 		return fmt.Errorf("failed to merge changes: %w\nOutput: %s", err, string(output))
 	}
-	
+
 	color.Printf("{green}✓{reset} Successfully pulled changes from container\n")
 	return nil
 }
@@ -1062,7 +1062,7 @@ func (f *CommandFactory) runStatus(cmd *cobra.Command, args []string) error {
 	if !f.GitClient.IsGitRepository(".") {
 		return fmt.Errorf("l8s status must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
 	}
-	
+
 	// Generate container name from worktree
 	fullName, err := GetContainerNameFromWorktree(f.Config.ContainerPrefix)
 	if err != nil {
@@ -1070,7 +1070,7 @@ func (f *CommandFactory) runStatus(cmd *cobra.Command, args []string) error {
 	}
 	// Remove prefix for the short name
 	shortName := fullName[len(f.Config.ContainerPrefix)+1:]
-	
+
 	// Get container info
 	ctx := context.Background()
 	container, err := f.ContainerMgr.GetContainerInfo(ctx, shortName)
@@ -1079,7 +1079,7 @@ func (f *CommandFactory) runStatus(cmd *cobra.Command, args []string) error {
 		color.Printf("Run 'l8s create' to create it.\n")
 		return nil
 	}
-	
+
 	// Display container info
 	color.Printf("{cyan}Container:{reset} {bold}%s{reset}\n", fullName)
 	color.Printf("{cyan}Status:{reset} %s\n", formatStatus(container.Status))
@@ -1088,13 +1088,13 @@ func (f *CommandFactory) runStatus(cmd *cobra.Command, args []string) error {
 		color.Printf("{cyan}Web Port:{reset} %d\n", container.WebPort)
 	}
 	color.Printf("{cyan}Created:{reset} %s\n", container.CreatedAt.Format("2006-01-02 15:04:05"))
-	
+
 	// Check git remote
 	remoteName := shortName
 	remotes, _ := f.GitClient.ListRemotes(".")
 	if remoteURL, exists := remotes[remoteName]; exists {
 		color.Printf("{cyan}Git Remote:{reset} %s → %s\n", remoteName, remoteURL)
-		
+
 		// Get current branch
 		branch, _ := f.GitClient.GetCurrentBranch(".")
 		if branch != "" {
@@ -1103,35 +1103,35 @@ func (f *CommandFactory) runStatus(cmd *cobra.Command, args []string) error {
 	} else {
 		color.Printf("{yellow}!{reset} Git remote not configured\n")
 	}
-	
+
 	return nil
 }
 
 // runRebuildAll handles the rebuild-all command
 func (f *CommandFactory) runRebuildAll(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	
+
 	// Get all containers
 	containers, err := f.ContainerMgr.ListContainers(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list containers: %w", err)
 	}
-	
+
 	if len(containers) == 0 {
 		fmt.Println("No containers to rebuild")
 		return nil
 	}
-	
+
 	// Get flags
 	force, _ := cmd.Flags().GetBool("force")
 	build, _ := cmd.Flags().GetBool("build")
 	skipBuild, _ := cmd.Flags().GetBool("skip-build")
-	
+
 	// Validate mutually exclusive flags
 	if build && skipBuild {
 		return fmt.Errorf("--build and --skip-build are mutually exclusive")
 	}
-	
+
 	// Confirm if not forced
 	if !force {
 		reader := bufio.NewReader(os.Stdin)
@@ -1146,7 +1146,7 @@ func (f *CommandFactory) runRebuildAll(cmd *cobra.Command, args []string) error 
 			return nil
 		}
 	}
-	
+
 	// Handle image build decision
 	var shouldBuild bool
 	if !build && !skipBuild {
@@ -1162,7 +1162,7 @@ func (f *CommandFactory) runRebuildAll(cmd *cobra.Command, args []string) error 
 	} else {
 		shouldBuild = build
 	}
-	
+
 	// Build image if requested
 	if shouldBuild {
 		fmt.Println("Building l8s base image...")
@@ -1171,15 +1171,15 @@ func (f *CommandFactory) runRebuildAll(cmd *cobra.Command, args []string) error 
 		}
 		color.Printf("{green}✓{reset} Image built successfully\n\n")
 	}
-	
+
 	// Rebuild each container
 	successCount := 0
 	failedContainers := []string{}
-	
+
 	for _, container := range containers {
 		containerName := strings.TrimPrefix(container.Name, f.Config.ContainerPrefix+"-")
 		color.Printf("Rebuilding {bold}%s{reset}...\n", container.Name)
-		
+
 		if err := f.ContainerMgr.RebuildContainer(ctx, containerName); err != nil {
 			color.Printf("{red}✗{reset} Failed to rebuild %s: %v\n", container.Name, err)
 			failedContainers = append(failedContainers, container.Name)
@@ -1188,7 +1188,7 @@ func (f *CommandFactory) runRebuildAll(cmd *cobra.Command, args []string) error 
 			successCount++
 		}
 	}
-	
+
 	// Summary
 	fmt.Printf("\n")
 	color.Printf("Rebuild complete: {green}%d successful{reset}", successCount)
@@ -1201,7 +1201,7 @@ func (f *CommandFactory) runRebuildAll(cmd *cobra.Command, args []string) error 
 	} else {
 		fmt.Println()
 	}
-	
+
 	return nil
 }
 
@@ -1245,8 +1245,8 @@ func (f *CommandFactory) runInstallZSHPlugin(ctx context.Context) error {
 	}
 
 	// Check if plugin is already configured
-	if strings.Contains(string(zshrcContent), "plugins+=(l8s)") || 
-	   strings.Contains(string(zshrcContent), "plugins=(") && strings.Contains(string(zshrcContent), "l8s") {
+	if strings.Contains(string(zshrcContent), "plugins+=(l8s)") ||
+		strings.Contains(string(zshrcContent), "plugins=(") && strings.Contains(string(zshrcContent), "l8s") {
 		color.Printf("{green}✓{reset} Plugin already configured in .zshrc\n")
 	} else {
 		// Add plugin to .zshrc
@@ -1255,7 +1255,7 @@ func (f *CommandFactory) runInstallZSHPlugin(ctx context.Context) error {
 			"if [[ -d \"$ZSH_CUSTOM/plugins/l8s\" ]]; then\n" +
 			"    plugins+=(l8s)\n" +
 			"fi\n"
-		
+
 		if err := os.WriteFile(zshrcPath, append(zshrcContent, []byte(addition)...), 0644); err != nil {
 			return fmt.Errorf("failed to update .zshrc: %w", err)
 		}
@@ -1267,4 +1267,79 @@ func (f *CommandFactory) runInstallZSHPlugin(ctx context.Context) error {
 	color.Printf("  {cyan}source ~/.zshrc{reset}\n")
 
 	return nil
+}
+
+// runTeamJoin joins or creates a team session in the container for current git repository
+func (f *CommandFactory) runTeamJoin(ctx context.Context, sessionName string) error {
+	// Check if we're in a git repository
+	if !f.GitClient.IsGitRepository(".") {
+		return fmt.Errorf("l8s team must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
+	}
+
+	// Generate container name from worktree
+	fullName, err := GetContainerNameFromWorktree(f.Config.ContainerPrefix)
+	if err != nil {
+		return fmt.Errorf("failed to generate container name: %w", err)
+	}
+	// Remove prefix for the short name
+	name := fullName[len(f.Config.ContainerPrefix)+1:]
+
+	// Validate container exists and is running
+	container, err := f.ContainerMgr.GetContainerInfo(ctx, name)
+	if err != nil {
+		return fmt.Errorf("failed to get container info: %w", err)
+	}
+
+	if container.Status != "running" {
+		return fmt.Errorf("container '%s' is not running (status: %s)\nRun 'l8s start' to start it first.", fullName, container.Status)
+	}
+
+	// Execute SSH with team command
+	// Use -t to force TTY allocation for interactive session
+	// Use fully qualified path to avoid PATH issues
+	sshCmd := exec.Command("ssh", "-t",
+		fmt.Sprintf("%s-%s", f.Config.ContainerPrefix, name),
+		fmt.Sprintf("~/.local/bin/team %s", sessionName))
+
+	sshCmd.Stdin = os.Stdin
+	sshCmd.Stdout = os.Stdout
+	sshCmd.Stderr = os.Stderr
+
+	return sshCmd.Run()
+}
+
+// runTeamList lists active team sessions in the container for current git repository
+func (f *CommandFactory) runTeamList(ctx context.Context) error {
+	// Check if we're in a git repository
+	if !f.GitClient.IsGitRepository(".") {
+		return fmt.Errorf("l8s team list must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
+	}
+
+	// Generate container name from worktree
+	fullName, err := GetContainerNameFromWorktree(f.Config.ContainerPrefix)
+	if err != nil {
+		return fmt.Errorf("failed to generate container name: %w", err)
+	}
+	// Remove prefix for the short name
+	name := fullName[len(f.Config.ContainerPrefix)+1:]
+
+	// Validate container exists and is running
+	container, err := f.ContainerMgr.GetContainerInfo(ctx, name)
+	if err != nil {
+		return fmt.Errorf("failed to get container info: %w", err)
+	}
+
+	if container.Status != "running" {
+		return fmt.Errorf("container '%s' is not running (status: %s)\nRun 'l8s start' to start it first.", fullName, container.Status)
+	}
+
+	// Execute team list command via SSH
+	// Use fully qualified path to avoid PATH issues
+	sshCmd := exec.Command("ssh",
+		fmt.Sprintf("%s-%s", f.Config.ContainerPrefix, name),
+		"~/.local/bin/team list")
+	sshCmd.Stdout = os.Stdout
+	sshCmd.Stderr = os.Stderr
+
+	return sshCmd.Run()
 }

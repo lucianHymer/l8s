@@ -695,6 +695,7 @@ func (m *Manager) copyEmbeddedDotfiles(ctx context.Context, containerName string
 		".claude/hooks/pretooluse.sh":     true,
 		".claude/hooks/stop.sh":           true,
 		".claude/hooks/subagent-stop.sh":  true,
+		".local/bin/team":                 true,
 	}
 	
 	// Walk through embedded filesystem and extract files

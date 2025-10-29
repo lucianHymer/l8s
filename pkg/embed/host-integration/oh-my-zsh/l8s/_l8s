@@ -53,6 +53,7 @@ _l8s() {
         'ssh:SSH into the container for current git repository'
         'exec:Execute command in container for current git repository'
         'paste:Paste clipboard content to container'
+        'team:Join or create a persistent team session in container'
         'push:Push code to container for current git repository'
         'pull:Pull code from container for current git repository'
         'status:Show status of container for current git repository'
@@ -121,6 +122,11 @@ _l8s() {
                 paste)
                     # Paste now works in git context, no container arg needed
                     # Could complete custom names here but not implemented yet
+                    ;;
+                team)
+                    # Complete team subcommands (list) or session names (no completion for names)
+                    compadd list
+                    # Note: Session names are user-defined and not easily discoverable from host
                     ;;
                 remote)
                     # Complete remote subcommands

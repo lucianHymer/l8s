@@ -638,3 +638,67 @@ Prerequisites:
 		},
 	}
 }
+
+// TeamCmd creates the team command for managing dtach sessions
+func (f *LazyCommandFactory) TeamCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "team <session-name>",
+		Short:   "Join or create a persistent team session in container",
+		GroupID: "working",
+		Long: `Join or create a persistent terminal session using dtach in the container for the current git repository.
+
+Team sessions allow you to:
+  - Create persistent terminal sessions that survive SSH disconnections
+  - Resume work after network interruptions or laptop sleep
+  - Share terminal sessions for pair programming
+  - Keep long-running tasks alive across connections
+
+The session will be created if it doesn't exist, or you'll attach to it if it already exists.
+Use Ctrl+\ to detach from the session (it will continue running).`,
+		Args: cobra.ExactArgs(1),
+		Example: `  # Join or create a "backend" session
+  l8s team backend
+
+  # Join or create a "debugging" session
+  l8s team debugging
+
+  # List active sessions
+  l8s team list`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := f.ensureInitialized(); err != nil {
+				return err
+			}
+			origFactory := &CommandFactory{
+				Config:       f.Config,
+				ContainerMgr: f.ContainerMgr,
+				GitClient:    f.GitClient,
+				SSHClient:    f.SSHClient,
+			}
+			return origFactory.runTeamJoin(cmd.Context(), args[0])
+		},
+	}
+
+	// Add list subcommand
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List active team sessions in container",
+		Long: `List all active team sessions in the container for the current git repository.
+
+Shows which persistent terminal sessions are currently active and available to attach to.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := f.ensureInitialized(); err != nil {
+				return err
+			}
+			origFactory := &CommandFactory{
+				Config:       f.Config,
+				ContainerMgr: f.ContainerMgr,
+				GitClient:    f.GitClient,
+				SSHClient:    f.SSHClient,
+			}
+			return origFactory.runTeamList(cmd.Context())
+		},
+	}
+	cmd.AddCommand(listCmd)
+
+	return cmd
+}

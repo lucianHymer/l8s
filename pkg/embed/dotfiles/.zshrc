@@ -65,85 +65,10 @@ if [ -f /usr/share/fzf/shell/key-bindings.zsh ]; then
 fi
 
 # Team command for dtach session management
-team() {
-    local cmd="$1"
-    
-    # Show help for various help flags or no arguments at all
-    if [ -z "$cmd" ] || [[ "$cmd" =~ ^(-h|--help|-help|help)$ ]]; then
-        cat <<EOF
-team - Manage dtach sessions for team collaboration
-
-Usage:
-  team <name>              Create or attach to a session
-  team ls|list             List active sessions
-  team attach <name>       Attach to existing session (read-only)
-  team create <name>       Create new session (same as 'team <name>')
-  team help                Show this help message
-
-Examples:
-  team frontend            Create/attach to 'frontend' session
-  team ls                  Show all active sessions
-  team attach backend      Attach to existing 'backend' session
-
-Sessions persist across connections. Use Ctrl+\ to detach.
-EOF
-        return 0
-    fi
-    
-    case "$cmd" in
-        ls|list)
-            echo "Active sessions:"
-            local found=0
-            for sock in /tmp/dtach-*.sock; do
-                if [ -S "$sock" ]; then
-                    # Extract encoded name from socket path
-                    local encoded=$(basename "$sock" .sock | sed 's/^dtach-//')
-                    local name=$(echo "$encoded" | base64 -d 2>/dev/null || echo "invalid")
-                    echo "  $name"
-                    found=1
-                fi
-            done
-            [ $found -eq 0 ] && echo "  (none)"
-            ;;
-        
-        attach|a)
-            local name="$2"
-            if [ -z "$name" ]; then
-                echo "Usage: team attach <name>"
-                return 1
-            fi
-            local encoded=$(echo -n "$name" | base64 | tr -d '\n')
-            local socket="/tmp/dtach-$encoded.sock"
-            if [ -S "$socket" ]; then
-                DTACH_SESSION="$name" dtach -a "$socket"
-            else
-                echo "Session '$name' not found"
-                echo "Active sessions:"
-                team ls | tail -n +2  # Skip the "Active sessions:" header
-                return 1
-            fi
-            ;;
-        
-        create|c)
-            local name="$2"
-            if [ -z "$name" ]; then
-                echo "Usage: team create <name>"
-                return 1
-            fi
-            local encoded=$(echo -n "$name" | base64 | tr -d '\n')
-            local socket="/tmp/dtach-$encoded.sock"
-            DTACH_SESSION="$name" dtach -A "$socket" -z /bin/zsh
-            ;;
-        
-        *)
-            # Default to create if just given a name
-            local name="$cmd"
-            local encoded=$(echo -n "$name" | base64 | tr -d '\n')
-            local socket="/tmp/dtach-$encoded.sock"
-            DTACH_SESSION="$name" dtach -A "$socket" -z /bin/zsh
-            ;;
-    esac
-}
+# The team command is now a standalone script in ~/.local/bin/team
+# Use 'team <name>' to create/attach to persistent sessions
+# Use 'team list' to see active sessions
+# Sessions persist across SSH disconnections
 
 # ZSH completion for team command
 _team() {

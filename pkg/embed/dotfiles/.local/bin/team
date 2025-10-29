@@ -1,0 +1,81 @@
+#!/bin/zsh
+# team - Manage dtach sessions for team collaboration
+# This script provides persistent terminal sessions using dtach
+
+cmd="$1"
+
+# Show help for various help flags or no arguments at all
+if [ -z "$cmd" ] || [[ "$cmd" =~ ^(-h|--help|-help|help)$ ]]; then
+    cat <<EOF
+team - Manage dtach sessions for team collaboration
+
+Usage:
+  team <name>              Create or attach to a session
+  team ls|list             List active sessions
+  team attach <name>       Attach to existing session (read-only)
+  team create <name>       Create new session (same as 'team <name>')
+  team help                Show this help message
+
+Examples:
+  team frontend            Create/attach to 'frontend' session
+  team ls                  Show all active sessions
+  team attach backend      Attach to existing 'backend' session
+
+Sessions persist across connections. Use Ctrl+\ to detach.
+EOF
+    exit 0
+fi
+
+case "$cmd" in
+    ls|list)
+        echo "Active sessions:"
+        found=0
+        for sock in /tmp/dtach-*.sock; do
+            if [ -S "$sock" ]; then
+                # Extract encoded name from socket path
+                encoded=$(basename "$sock" .sock | sed 's/^dtach-//')
+                name=$(echo "$encoded" | base64 -d 2>/dev/null || echo "invalid")
+                echo "  $name"
+                found=1
+            fi
+        done
+        [ $found -eq 0 ] && echo "  (none)"
+        ;;
+
+    attach|a)
+        name="$2"
+        if [ -z "$name" ]; then
+            echo "Usage: team attach <name>"
+            exit 1
+        fi
+        encoded=$(echo -n "$name" | base64 | tr -d '\n')
+        socket="/tmp/dtach-$encoded.sock"
+        if [ -S "$socket" ]; then
+            DTACH_SESSION="$name" dtach -a "$socket"
+        else
+            echo "Session '$name' not found"
+            echo "Active sessions:"
+            team ls | tail -n +2  # Skip the "Active sessions:" header
+            exit 1
+        fi
+        ;;
+
+    create|c)
+        name="$2"
+        if [ -z "$name" ]; then
+            echo "Usage: team create <name>"
+            exit 1
+        fi
+        encoded=$(echo -n "$name" | base64 | tr -d '\n')
+        socket="/tmp/dtach-$encoded.sock"
+        DTACH_SESSION="$name" dtach -A "$socket" -z /bin/zsh
+        ;;
+
+    *)
+        # Default to create if just given a name
+        name="$cmd"
+        encoded=$(echo -n "$name" | base64 | tr -d '\n')
+        socket="/tmp/dtach-$encoded.sock"
+        DTACH_SESSION="$name" dtach -A "$socket" -z /bin/zsh
+        ;;
+esac

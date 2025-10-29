@@ -170,7 +170,11 @@ func TestSSHConfigEntry(t *testing.T) {
     UserKnownHostsFile /dev/null
     ControlMaster auto
     ControlPath ~/.ssh/control-%r@%h:%p
-    ControlPersist 10m
+    ControlPersist 1h
+    ServerAliveInterval 30
+    ServerAliveCountMax 6
+    ConnectTimeout 10
+    TCPKeepAlive yes
 `,
 		},
 		{
@@ -187,7 +191,11 @@ func TestSSHConfigEntry(t *testing.T) {
     UserKnownHostsFile /dev/null
     ControlMaster auto
     ControlPath ~/.ssh/control-%r@%h:%p
-    ControlPersist 10m
+    ControlPersist 1h
+    ServerAliveInterval 30
+    ServerAliveCountMax 6
+    ConnectTimeout 10
+    TCPKeepAlive yes
 `,
 		},
 	}
