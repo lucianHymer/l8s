@@ -114,3 +114,5 @@ r() {
 
   nvim +"$line" "$file"
 }
+
+cd /workspace/project
