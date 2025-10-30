@@ -1,6 +1,6 @@
 # 📚 L8s Knowledge Map
 
-*Last updated: 2025-10-29*
+*Last updated: 2025-10-30*
 
 ## 🏗️ Architecture
 
@@ -29,6 +29,7 @@
 - [GitHub CLI Origin Remote](features/github_cli_origin_remote.md) - Automatic origin remote replication for gh CLI
 - [Slash Commands](features/slash_commands.md) - Custom Claude Code commands for development workflows
 - [Web Port Forwarding](features/web_port_forwarding.md) - Automatic port 3000 forwarding for web apps *(New: 2025-10-29)*
+- [Statusline Debug Logging](features/statusline_debug_logging.md) - Debug logging for Claude Code statusline *(New: 2025-10-30)*
 
 ## 🔒 Security
 

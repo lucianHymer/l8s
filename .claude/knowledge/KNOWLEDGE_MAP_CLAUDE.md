@@ -27,6 +27,7 @@
 - @features/github_cli_origin_remote.md - Automatic origin remote replication for gh CLI
 - @features/slash_commands.md - Custom Claude Code commands for development workflows
 - @features/web_port_forwarding.md - Automatic port 3000 forwarding for web apps
+- @features/statusline_debug_logging.md - Debug logging for Claude Code statusline
 
 ## 🔒 Security
 

@@ -15,6 +15,9 @@ RESET='\033[0m'       # Reset color
 # Read JSON input from stdin
 json_input=$(cat)
 
+# Log the latest statusline input for debugging (silently, don't affect output)
+echo "$json_input" > "$HOME/.debug-statusline.json" 2>/dev/null
+
 # Extract working directory from JSON input using jq if available
 # Falls back to PWD if jq not available or parsing fails
 if command -v jq &> /dev/null 2>&1; then
