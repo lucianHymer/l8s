@@ -1,6 +1,6 @@
 # 📚 L8s Knowledge Map
 
-*Last updated: 2025-10-30*
+*Last updated: 2025-11-10*
 
 ## 🏗️ Architecture
 
@@ -20,6 +20,7 @@
 - [Cobra Command Structure](patterns/cobra_command_structure.md) - Consistent command implementation pattern
 - [ContainerManager Interface](patterns/container_manager_interface.md) - Adding new container operations
 - [Standalone Scripts for SSH](patterns/standalone_scripts_for_ssh.md) - Executable scripts vs shell functions *(New: 2025-10-29)*
+- [Simplified Command Interface](patterns/simplified_command_interface.md) - Optional arguments over subcommands for list/action patterns *(New: 2025-11-10)*
 
 ## ✨ Features
 
