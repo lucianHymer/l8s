@@ -18,6 +18,7 @@
 - @patterns/cobra_command_structure.md - Consistent command implementation pattern
 - @patterns/container_manager_interface.md - Adding new container operations
 - @patterns/standalone_scripts_for_ssh.md - Executable scripts vs shell functions
+- @patterns/simplified_command_interface.md - Optional arguments over subcommands for list/action patterns
 
 ## ✨ Features
 
