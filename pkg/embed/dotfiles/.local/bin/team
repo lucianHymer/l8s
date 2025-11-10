@@ -4,12 +4,13 @@
 
 cmd="$1"
 
-# Show help for various help flags or no arguments at all
-if [ -z "$cmd" ] || [[ "$cmd" =~ ^(-h|--help|-help|help)$ ]]; then
+# Show help for various help flags
+if [[ "$cmd" =~ ^(-h|--help|-help|help)$ ]]; then
     cat <<EOF
 team - Manage dtach sessions for team collaboration
 
 Usage:
+  team                     List active sessions
   team <name>              Create or attach to a session
   team ls|list             List active sessions
   team attach <name>       Attach to existing session (read-only)
@@ -17,13 +18,18 @@ Usage:
   team help                Show this help message
 
 Examples:
+  team                     Show all active sessions
   team frontend            Create/attach to 'frontend' session
-  team ls                  Show all active sessions
   team attach backend      Attach to existing 'backend' session
 
 Sessions persist across connections. Use Ctrl+\ to detach.
 EOF
     exit 0
+fi
+
+# No arguments means list
+if [ -z "$cmd" ]; then
+    cmd="list"
 fi
 
 case "$cmd" in
