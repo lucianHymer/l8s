@@ -21,8 +21,9 @@ import (
 
 // runCreate handles the create command
 func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
-	// Check if we're in a git repository
-	if !f.GitClient.IsGitRepository(".") {
+	// Get repository root to support running from subdirectories
+	repoRoot, err := f.GitClient.GetRepositoryRoot(".")
+	if err != nil {
 		return fmt.Errorf("l8s create must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
 	}
 
@@ -45,7 +46,7 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 	// Get branch from flag or use current branch
 	branch, _ := cmd.Flags().GetString("branch")
 	if branch == "" {
-		currentBranch, err := f.GitClient.GetCurrentBranch(".")
+		currentBranch, err := f.GitClient.GetCurrentBranch(repoRoot)
 		if err != nil {
 			return fmt.Errorf("failed to get current branch: %w", err)
 		}
@@ -83,7 +84,7 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 
 	// Add git remote to local repository
 	remoteURL := fmt.Sprintf("%s:/workspace/project", fullName)
-	if err := f.GitClient.AddRemote(".", shortName, remoteURL); err != nil {
+	if err := f.GitClient.AddRemote(repoRoot, shortName, remoteURL); err != nil {
 		// If we fail to add the remote, try to clean up the container
 		color.Printf("{red}✗{reset} Failed to add git remote: %v\n", err)
 		color.Printf("{yellow}!{reset} Cleaning up container...\n")
@@ -93,10 +94,10 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 
 	// Push the branch to the container
 	color.Printf("{cyan}→{reset} Pushing {bold}%s{reset} branch to container...\n", branch)
-	if err := f.GitClient.PushBranch(".", branch, shortName, false); err != nil {
+	if err := f.GitClient.PushBranch(repoRoot, branch, shortName, false); err != nil {
 		// If push fails, clean up remote but keep container (user might want to debug)
 		color.Printf("{red}✗{reset} Failed to push code: %v\n", err)
-		_ = f.GitClient.RemoveRemote(".", shortName)
+		_ = f.GitClient.RemoveRemote(repoRoot, shortName)
 		color.Printf("{yellow}!{reset} Container created but code push failed\n")
 		color.Printf("{yellow}!{reset} You may need to manually push or remove the container\n")
 		return fmt.Errorf("failed to push initial code: %w", err)
@@ -104,7 +105,7 @@ func (f *CommandFactory) runCreate(cmd *cobra.Command, args []string) error {
 
 	// Replicate origin remote to container if it exists in host repo
 	// This enables GitHub CLI (gh) to work automatically
-	hostRemotes, err := f.GitClient.ListRemotes(".")
+	hostRemotes, err := f.GitClient.ListRemotes(repoRoot)
 	if err == nil {
 		if originURL, exists := hostRemotes["origin"]; exists {
 			color.Printf("{cyan}→{reset} Adding origin remote to container for GitHub CLI support...\n")
@@ -186,6 +187,12 @@ func (f *CommandFactory) runList(cmd *cobra.Command, args []string) error {
 	// Check if we're in a git repository and get the expected container name
 	expectedContainerName := GetExpectedContainerName(f.Config.ContainerPrefix)
 
+	// Get repository root if we're in a git repo (for git remote checking)
+	repoRoot := "."
+	if root, err := f.GitClient.GetRepositoryRoot("."); err == nil {
+		repoRoot = root
+	}
+
 	// Create color-aware table writer using juju/ansiterm
 	w := ansiterm.NewTabWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
 
@@ -205,7 +212,7 @@ func (f *CommandFactory) runList(cmd *cobra.Command, args []string) error {
 
 	for _, c := range containers {
 		// Check if git remote exists for this container
-		remotes, _ := f.GitClient.ListRemotes(".")
+		remotes, _ := f.GitClient.ListRemotes(repoRoot)
 		containerName := strings.TrimPrefix(c.Name, f.Config.ContainerPrefix+"-")
 		_, hasRemote := remotes[containerName]
 		gitRemote := formatGitStatus(hasRemote)
@@ -948,13 +955,14 @@ func (f *CommandFactory) HandleRebuild(name string, build, skipBuild bool) error
 
 // runPush handles the push command
 func (f *CommandFactory) runPush(cmd *cobra.Command, args []string) error {
-	// Check if we're in a git repository
-	if !f.GitClient.IsGitRepository(".") {
+	// Get repository root to support running from subdirectories
+	repoRoot, err := f.GitClient.GetRepositoryRoot(".")
+	if err != nil {
 		return fmt.Errorf("l8s push must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
 	}
 
 	// Get current branch
-	branch, err := f.GitClient.GetCurrentBranch(".")
+	branch, err := f.GitClient.GetCurrentBranch(repoRoot)
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
@@ -968,7 +976,7 @@ func (f *CommandFactory) runPush(cmd *cobra.Command, args []string) error {
 	remoteName := fullName[len(f.Config.ContainerPrefix)+1:]
 
 	// Check if remote exists
-	remotes, err := f.GitClient.ListRemotes(".")
+	remotes, err := f.GitClient.ListRemotes(repoRoot)
 	if err != nil {
 		return err
 	}
@@ -978,7 +986,7 @@ func (f *CommandFactory) runPush(cmd *cobra.Command, args []string) error {
 
 	// Push with fast-forward only (no force)
 	color.Printf("{cyan}→{reset} Pushing {bold}%s{reset} branch to container...\n", branch)
-	if err := f.GitClient.PushBranch(".", branch, remoteName, false); err != nil {
+	if err := f.GitClient.PushBranch(repoRoot, branch, remoteName, false); err != nil {
 		if strings.Contains(err.Error(), "non-fast-forward") || strings.Contains(err.Error(), "rejected") {
 			return fmt.Errorf("Cannot push - remote has diverged\nThe container has changes that would be overwritten.\nRun 'l8s pull' first to merge changes, then push again.")
 		}
@@ -1003,13 +1011,14 @@ func (f *CommandFactory) runPush(cmd *cobra.Command, args []string) error {
 
 // runPull handles the pull command
 func (f *CommandFactory) runPull(cmd *cobra.Command, args []string) error {
-	// Check if we're in a git repository
-	if !f.GitClient.IsGitRepository(".") {
+	// Get repository root to support running from subdirectories
+	repoRoot, err := f.GitClient.GetRepositoryRoot(".")
+	if err != nil {
 		return fmt.Errorf("l8s pull must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
 	}
 
 	// Get current branch
-	branch, err := f.GitClient.GetCurrentBranch(".")
+	branch, err := f.GitClient.GetCurrentBranch(repoRoot)
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
@@ -1023,7 +1032,7 @@ func (f *CommandFactory) runPull(cmd *cobra.Command, args []string) error {
 	remoteName := fullName[len(f.Config.ContainerPrefix)+1:]
 
 	// Check if remote exists
-	remotes, err := f.GitClient.ListRemotes(".")
+	remotes, err := f.GitClient.ListRemotes(repoRoot)
 	if err != nil {
 		return err
 	}
@@ -1034,7 +1043,7 @@ func (f *CommandFactory) runPull(cmd *cobra.Command, args []string) error {
 	// Fetch from the remote
 	color.Printf("{cyan}→{reset} Fetching changes from container...\n")
 	fetchCmd := exec.Command("git", "fetch", remoteName, branch)
-	fetchCmd.Dir = "."
+	fetchCmd.Dir = repoRoot
 	output, err := fetchCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to fetch from container: %w\nOutput: %s", err, string(output))
@@ -1043,7 +1052,7 @@ func (f *CommandFactory) runPull(cmd *cobra.Command, args []string) error {
 	// Merge with fast-forward only
 	color.Printf("{cyan}→{reset} Merging changes (fast-forward only)...\n")
 	mergeCmd := exec.Command("git", "merge", "--ff-only", fmt.Sprintf("%s/%s", remoteName, branch))
-	mergeCmd.Dir = "."
+	mergeCmd.Dir = repoRoot
 	output, err = mergeCmd.CombinedOutput()
 	if err != nil {
 		if strings.Contains(string(output), "not possible to fast-forward") {
@@ -1058,8 +1067,9 @@ func (f *CommandFactory) runPull(cmd *cobra.Command, args []string) error {
 
 // runStatus handles the status command
 func (f *CommandFactory) runStatus(cmd *cobra.Command, args []string) error {
-	// Check if we're in a git repository
-	if !f.GitClient.IsGitRepository(".") {
+	// Get repository root to support running from subdirectories
+	repoRoot, err := f.GitClient.GetRepositoryRoot(".")
+	if err != nil {
 		return fmt.Errorf("l8s status must be run from within a git repository\nThis command requires a git worktree to determine the target container.")
 	}
 
@@ -1091,12 +1101,12 @@ func (f *CommandFactory) runStatus(cmd *cobra.Command, args []string) error {
 
 	// Check git remote
 	remoteName := shortName
-	remotes, _ := f.GitClient.ListRemotes(".")
+	remotes, _ := f.GitClient.ListRemotes(repoRoot)
 	if remoteURL, exists := remotes[remoteName]; exists {
 		color.Printf("{cyan}Git Remote:{reset} %s → %s\n", remoteName, remoteURL)
 
 		// Get current branch
-		branch, _ := f.GitClient.GetCurrentBranch(".")
+		branch, _ := f.GitClient.GetCurrentBranch(repoRoot)
 		if branch != "" {
 			color.Printf("{cyan}Current Branch:{reset} %s\n", branch)
 		}
