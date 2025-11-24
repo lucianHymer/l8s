@@ -160,29 +160,29 @@ func TestCreateCommandNewFlow(t *testing.T) {
 			isGitRepo:     true,
 			currentBranch: "main",
 			setupMocks: func(f *LazyCommandFactory, cm *MockContainerManagerWithGit, gc *MockGitClientEnhanced) {
-				// Check if current directory is a git repo
-				gc.On("IsGitRepository", ".").Return(true)
-				gc.On("GetCurrentBranch", ".").Return("main", nil)
-				
+				// Get repository root
+				gc.On("GetRepositoryRoot", ".").Return("/workspace/project", nil)
+				gc.On("GetCurrentBranch", "/workspace/project").Return("main", nil)
+
 				// Check if container already exists (should not exist)
 				cm.On("GetContainerInfo", mock.Anything, mock.AnythingOfType("string")).Return(nil, errors.New("not found")).Once()
-				
+
 				// Create container with deterministic name
 				cm.On("CreateContainer", mock.Anything, mock.AnythingOfType("string"), "mock-ssh-key").
 					Return(&container.Container{
 						Name:    "project-e3af8a",
 						SSHPort: 2222,
 					}, nil)
-				
+
 				// Add git remote with deterministic name
-				gc.On("AddRemote", ".", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
-				
+				gc.On("AddRemote", "/workspace/project", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+
 				// Push initial code
-				gc.On("PushBranch", ".", "main", mock.AnythingOfType("string"), false).Return(nil)
-				
+				gc.On("PushBranch", "/workspace/project", "main", mock.AnythingOfType("string"), false).Return(nil)
+
 				// List remotes to check for origin
-				gc.On("ListRemotes", ".").Return(map[string]string{"origin": "https://github.com/user/repo.git"}, nil)
-				
+				gc.On("ListRemotes", "/workspace/project").Return(map[string]string{"origin": "https://github.com/user/repo.git"}, nil)
+
 				// Exec to add origin remote and checkout branch
 				cm.On("ExecContainer", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
 			},
@@ -195,29 +195,29 @@ func TestCreateCommandNewFlow(t *testing.T) {
 			isGitRepo:     true,
 			currentBranch: "main",
 			setupMocks: func(f *LazyCommandFactory, cm *MockContainerManagerWithGit, gc *MockGitClientEnhanced) {
-				// Check if current directory is a git repo
-				gc.On("IsGitRepository", ".").Return(true)
+				// Get repository root
+				gc.On("GetRepositoryRoot", ".").Return("/workspace/project", nil)
 				// Don't need to get current branch when branch is specified
-				
+
 				// Check if container already exists
 				cm.On("GetContainerInfo", mock.Anything, mock.AnythingOfType("string")).Return(nil, errors.New("not found")).Once()
-				
+
 				// Create container
 				cm.On("CreateContainer", mock.Anything, mock.AnythingOfType("string"), "mock-ssh-key").
 					Return(&container.Container{
 						Name:    "project-e3af8a",
 						SSHPort: 2222,
 					}, nil)
-				
+
 				// Add git remote
-				gc.On("AddRemote", ".", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
-				
+				gc.On("AddRemote", "/workspace/project", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+
 				// Push specified branch
-				gc.On("PushBranch", ".", "feature", mock.AnythingOfType("string"), false).Return(nil)
-				
+				gc.On("PushBranch", "/workspace/project", "feature", mock.AnythingOfType("string"), false).Return(nil)
+
 				// List remotes to check for origin
-				gc.On("ListRemotes", ".").Return(map[string]string{"origin": "https://github.com/user/repo.git"}, nil)
-				
+				gc.On("ListRemotes", "/workspace/project").Return(map[string]string{"origin": "https://github.com/user/repo.git"}, nil)
+
 				// Exec to add origin remote and checkout branch
 				cm.On("ExecContainer", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
 			},
@@ -228,8 +228,8 @@ func TestCreateCommandNewFlow(t *testing.T) {
 			args:        []string{},
 			isGitRepo:   false,
 			setupMocks: func(f *LazyCommandFactory, cm *MockContainerManagerWithGit, gc *MockGitClientEnhanced) {
-				// Check if current directory is a git repo
-				gc.On("IsGitRepository", ".").Return(false)
+				// Get repository root will fail if not in a git repo
+				gc.On("GetRepositoryRoot", ".").Return("", errors.New("not in a git repository"))
 			},
 			wantErr:     true,
 			errContains: "must be run from within a git repository",
@@ -240,22 +240,22 @@ func TestCreateCommandNewFlow(t *testing.T) {
 			isGitRepo:     true,
 			currentBranch: "main",
 			setupMocks: func(f *LazyCommandFactory, cm *MockContainerManagerWithGit, gc *MockGitClientEnhanced) {
-				gc.On("IsGitRepository", ".").Return(true)
-				gc.On("GetCurrentBranch", ".").Return("main", nil)
-				
+				gc.On("GetRepositoryRoot", ".").Return("/workspace/project", nil)
+				gc.On("GetCurrentBranch", "/workspace/project").Return("main", nil)
+
 				// Check if container already exists
 				cm.On("GetContainerInfo", mock.Anything, mock.AnythingOfType("string")).Return(nil, errors.New("not found")).Once()
-				
+
 				cm.On("CreateContainer", mock.Anything, mock.AnythingOfType("string"), "mock-ssh-key").
 					Return(&container.Container{
 						Name:    "project-e3af8a",
 						SSHPort: 2222,
 					}, nil)
-				
+
 				// Fail to add git remote
-				gc.On("AddRemote", ".", mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+				gc.On("AddRemote", "/workspace/project", mock.AnythingOfType("string"), mock.AnythingOfType("string")).
 					Return(errors.New("remote already exists"))
-				
+
 				// Expect cleanup
 				cm.On("RemoveContainer", mock.Anything, mock.AnythingOfType("string"), true).Return(nil)
 			},
@@ -268,26 +268,26 @@ func TestCreateCommandNewFlow(t *testing.T) {
 			isGitRepo:     true,
 			currentBranch: "main",
 			setupMocks: func(f *LazyCommandFactory, cm *MockContainerManagerWithGit, gc *MockGitClientEnhanced) {
-				gc.On("IsGitRepository", ".").Return(true)
-				gc.On("GetCurrentBranch", ".").Return("main", nil)
-				
+				gc.On("GetRepositoryRoot", ".").Return("/workspace/project", nil)
+				gc.On("GetCurrentBranch", "/workspace/project").Return("main", nil)
+
 				// Check if container already exists
 				cm.On("GetContainerInfo", mock.Anything, mock.AnythingOfType("string")).Return(nil, errors.New("not found")).Once()
-				
+
 				cm.On("CreateContainer", mock.Anything, mock.AnythingOfType("string"), "mock-ssh-key").
 					Return(&container.Container{
 						Name:    "project-e3af8a",
 						SSHPort: 2222,
 					}, nil)
-				
-				gc.On("AddRemote", ".", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
-				
+
+				gc.On("AddRemote", "/workspace/project", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+
 				// Push fails
-				gc.On("PushBranch", ".", "main", mock.AnythingOfType("string"), false).
+				gc.On("PushBranch", "/workspace/project", "main", mock.AnythingOfType("string"), false).
 					Return(errors.New("failed to push"))
-				
+
 				// Expect remote cleanup on push failure
-				gc.On("RemoveRemote", ".", mock.AnythingOfType("string")).Return(nil)
+				gc.On("RemoveRemote", "/workspace/project", mock.AnythingOfType("string")).Return(nil)
 			},
 			wantErr:     true,
 			errContains: "failed to push",
