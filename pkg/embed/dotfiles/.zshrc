@@ -20,6 +20,8 @@ fi
 alias ll='ls -lAtr'
 alias v='nvim'
 alias danger='claude --dangerously-skip-permissions'
+alias op='claude --dangerously-skip-permissions --model=opus'
+alias son='claude --dangerously-skip-permissions --model=sonnet'
 
 
 # Git aliases
