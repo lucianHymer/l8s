@@ -89,6 +89,7 @@ RUN dnf update -y && \
         golang \
         rust \
         cargo \
+        rust-analyzer \
         dnf5-plugins \
         lsof \
         procps-ng \
@@ -129,7 +130,7 @@ USER root
 
 # Install global npm packages with cache cleaning for smaller image
 RUN npm cache clean --force && \
-    npm install -g @anthropic-ai/claude-code@latest
+    npm install -g @anthropic-ai/claude-code@latest typescript typescript-language-server
 
 # ============================================================================
 # SECTION 7: CONTAINER RUNTIME CONFIGURATION
