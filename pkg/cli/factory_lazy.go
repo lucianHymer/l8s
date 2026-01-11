@@ -689,3 +689,84 @@ Use Ctrl+\ to detach from a session (it will continue running).`,
 
 	return cmd
 }
+
+// AudioCmd returns the audio command with subcommands for managing audio streaming
+func (f *LazyCommandFactory) AudioCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "audio",
+		Short:   "Manage audio streaming from containers",
+		GroupID: "setup",
+		Long:    `Manage audio streaming from containers to your local machine via PulseAudio.`,
+	}
+
+	cmd.AddCommand(
+		&cobra.Command{
+			Use:   "setup-host",
+			Short: "Configure PipeWire/PulseAudio on the remote host",
+			RunE: func(cmd *cobra.Command, args []string) error {
+				if err := f.ensureInitialized(); err != nil {
+					return err
+				}
+				origFactory := &CommandFactory{
+					Config:       f.Config,
+					ContainerMgr: f.ContainerMgr,
+					GitClient:    f.GitClient,
+					SSHClient:    f.SSHClient,
+				}
+				return origFactory.runAudioSetupHost(cmd.Context())
+			},
+		},
+		&cobra.Command{
+			Use:   "setup-mac",
+			Short: "Install and configure PulseAudio on macOS",
+			RunE: func(cmd *cobra.Command, args []string) error {
+				// No initialization needed - runs locally
+				origFactory := &CommandFactory{}
+				return origFactory.runAudioSetupMac(cmd.Context())
+			},
+		},
+		&cobra.Command{
+			Use:   "connect",
+			Short: "Start the audio tunnel to remote host",
+			RunE: func(cmd *cobra.Command, args []string) error {
+				if err := f.ensureInitialized(); err != nil {
+					return err
+				}
+				origFactory := &CommandFactory{
+					Config:       f.Config,
+					ContainerMgr: f.ContainerMgr,
+					GitClient:    f.GitClient,
+					SSHClient:    f.SSHClient,
+				}
+				return origFactory.runAudioConnect(cmd.Context())
+			},
+		},
+		&cobra.Command{
+			Use:   "disconnect",
+			Short: "Stop the audio tunnel",
+			RunE: func(cmd *cobra.Command, args []string) error {
+				// No initialization needed - just kills local process
+				origFactory := &CommandFactory{}
+				return origFactory.runAudioDisconnect(cmd.Context())
+			},
+		},
+		&cobra.Command{
+			Use:   "status",
+			Short: "Show audio tunnel status",
+			RunE: func(cmd *cobra.Command, args []string) error {
+				if err := f.ensureInitialized(); err != nil {
+					return err
+				}
+				origFactory := &CommandFactory{
+					Config:       f.Config,
+					ContainerMgr: f.ContainerMgr,
+					GitClient:    f.GitClient,
+					SSHClient:    f.SSHClient,
+				}
+				return origFactory.runAudioStatus(cmd.Context())
+			},
+		},
+	)
+
+	return cmd
+}

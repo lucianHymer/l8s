@@ -248,7 +248,20 @@ func (f *CommandFactory) runList(cmd *cobra.Command, args []string) error {
 		color.Printf("{cyan}→{reset} Current worktree container\n")
 	}
 
-	return w.Flush()
+	// Flush the table first
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	// Show audio tunnel status
+	fmt.Fprintln(cmd.OutOrStdout())
+	if isAudioTunnelConnected() {
+		color.Printf("{green}Audio tunnel:{reset} ✓ connected\n")
+	} else {
+		color.Printf("{dim}Audio tunnel:{reset} not connected (run 'l8s audio connect')\n")
+	}
+
+	return nil
 }
 
 // runStart handles the start command
@@ -372,6 +385,13 @@ func (f *CommandFactory) runInfo(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Git Remote: (none)\n")
 	}
 	fmt.Printf("Created: %s\n", cont.CreatedAt.Format(time.RFC3339))
+
+	// Audio tunnel status (global, not per-container)
+	if isAudioTunnelConnected() {
+		color.Printf("{green}Audio:{reset} ✓ connected\n")
+	} else {
+		color.Printf("{dim}Audio:{reset} not connected (run 'l8s audio connect')\n")
+	}
 
 	fmt.Printf("\nSSH Connection:\n")
 	fmt.Printf("- l8s ssh %s\n", strings.TrimPrefix(cont.Name, f.Config.ContainerPrefix+"-"))
@@ -602,6 +622,13 @@ func formatGitStatus(hasGit bool) string {
 	return color.Red + "✗" + color.Reset
 }
 
+// isAudioTunnelConnected checks if the audio SSH tunnel is currently running
+func isAudioTunnelConnected() bool {
+	controlPath := filepath.Join(os.Getenv("HOME"), ".ssh", "control-*@l8s-audio:*")
+	matches, _ := filepath.Glob(controlPath)
+	return len(matches) > 0
+}
+
 // runInit handles the init command
 func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 	fmt.Println("=== L8s Configuration Setup ===")
@@ -817,6 +844,60 @@ func (f *CommandFactory) runInit(cmd *cobra.Command, args []string) error {
 
 	if err := cfg.Save(configPath); err != nil {
 		return fmt.Errorf("failed to save configuration: %w", err)
+	}
+
+	// Setup audio on remote host (non-fatal)
+	if cfg.AudioEnabled {
+		fmt.Println("\n=== Audio Setup ===")
+		fmt.Println("Setting up audio on remote host...")
+
+		// Create a temporary factory to call runAudioSetupHost
+		// Use a context for the audio setup
+		ctx := context.Background()
+
+		// Build the audio setup script
+		setupScript := `
+mkdir -p ~/.config/pipewire/pipewire-pulse.conf.d/
+cat > ~/.config/pipewire/pipewire-pulse.conf.d/10-network.conf << 'EOF'
+context.exec = [
+    { path = "pactl" args = "load-module module-native-protocol-tcp auth-anonymous=1" }
+]
+EOF
+systemctl --user restart pipewire-pulse
+sleep 1
+pactl info > /dev/null 2>&1 && echo "PipeWire is running"
+`
+
+		// Execute audio setup on remote host
+		color.Printf("{cyan}→{reset} Connecting to {bold}%s@%s{reset}...\n", cfg.RemoteUser, connCfg.Address)
+		sshCmd := exec.CommandContext(ctx, "ssh",
+			fmt.Sprintf("%s@%s", cfg.RemoteUser, connCfg.Address),
+			"bash", "-c", setupScript)
+		sshCmd.Stdout = os.Stdout
+		sshCmd.Stderr = os.Stderr
+
+		if err := sshCmd.Run(); err != nil {
+			color.Printf("{yellow}⚠{reset} Audio setup failed (non-fatal): %v\n", err)
+			color.Printf("  You can run {bold}l8s audio setup-host{reset} manually later\n")
+		} else {
+			color.Printf("{green}✓{reset} Audio configured on {bold}%s{reset} (port %d)\n", connCfg.Address, cfg.AudioPort)
+		}
+
+		// Add l8s-audio SSH config entry
+		audioConfig := ssh.GenerateAudioSSHConfigEntry(
+			connCfg.Address,
+			cfg.RemoteUser,
+			cfg.AudioPort,
+			cfg.KnownHostsPath,
+		)
+
+		// Add to SSH config (AddSSHConfigEntry handles duplicates)
+		sshConfigPath := filepath.Join(os.Getenv("HOME"), ".ssh", "config")
+		if err := ssh.AddSSHConfigEntry(sshConfigPath, audioConfig); err != nil {
+			color.Printf("{yellow}⚠{reset} Failed to add l8s-audio SSH config: %v\n", err)
+		} else {
+			color.Printf("{green}✓{reset} Added l8s-audio SSH config entry\n")
+		}
 	}
 
 	fmt.Println("\n=== Configuration Complete ===")
@@ -1352,4 +1433,250 @@ func (f *CommandFactory) runTeamList(ctx context.Context) error {
 	sshCmd.Stderr = os.Stderr
 
 	return sshCmd.Run()
+}
+
+// runAudioSetupHost configures PipeWire/PulseAudio on the remote host
+func (f *CommandFactory) runAudioSetupHost(ctx context.Context) error {
+	fmt.Println("Setting up audio on remote host...")
+
+	// Get remote host info from config
+	conn, err := f.Config.GetActiveConnection()
+	if err != nil {
+		return fmt.Errorf("no active connection configured: %w", err)
+	}
+	remoteHost := conn.Address
+	remoteUser := f.Config.RemoteUser
+	audioPort := f.Config.AudioPort
+
+	// Build the setup script
+	// This creates a PipeWire config that loads the native TCP protocol module
+	// allowing PulseAudio clients to connect over the network
+	setupScript := `
+mkdir -p ~/.config/pipewire/pipewire-pulse.conf.d/
+cat > ~/.config/pipewire/pipewire-pulse.conf.d/10-network.conf << 'EOF'
+context.exec = [
+    { path = "pactl" args = "load-module module-native-protocol-tcp auth-anonymous=1" }
+]
+EOF
+systemctl --user restart pipewire-pulse
+sleep 1
+pactl info > /dev/null 2>&1 && echo "PipeWire is running"
+`
+
+	// Execute via SSH
+	color.Printf("{cyan}→{reset} Connecting to {bold}%s@%s{reset}...\n", remoteUser, remoteHost)
+	sshCmd := exec.CommandContext(ctx, "ssh",
+		fmt.Sprintf("%s@%s", remoteUser, remoteHost),
+		"bash", "-c", setupScript)
+	sshCmd.Stdout = os.Stdout
+	sshCmd.Stderr = os.Stderr
+
+	if err := sshCmd.Run(); err != nil {
+		return fmt.Errorf("failed to setup audio on host: %w", err)
+	}
+
+	color.Printf("{green}✓{reset} Audio configured on {bold}%s{reset} (port %d)\n", remoteHost, audioPort)
+	color.Printf("\n{cyan}Next steps:{reset}\n")
+	color.Printf("- Run {bold}l8s audio setup-mac{reset} to configure your Mac\n")
+	color.Printf("- Run {bold}l8s audio connect{reset} to start the audio tunnel\n")
+
+	return nil
+}
+
+// runAudioSetupMac installs and configures PulseAudio on macOS
+func (f *CommandFactory) runAudioSetupMac(ctx context.Context) error {
+	// Check if running on macOS
+	if runtime.GOOS != "darwin" {
+		return fmt.Errorf("this command is only supported on macOS")
+	}
+
+	fmt.Println("Setting up audio on macOS...")
+
+	// Check if Homebrew is installed
+	if _, err := exec.LookPath("brew"); err != nil {
+		return fmt.Errorf("Homebrew not found. Please install it from https://brew.sh")
+	}
+	color.Printf("{green}✓{reset} Homebrew found\n")
+
+	// Check if PulseAudio is already installed
+	pulseInstalled := false
+	if _, err := exec.LookPath("pulseaudio"); err == nil {
+		pulseInstalled = true
+		color.Printf("{green}✓{reset} PulseAudio already installed\n")
+	}
+
+	// Install PulseAudio if needed
+	if !pulseInstalled {
+		color.Printf("{cyan}→{reset} Installing PulseAudio via Homebrew...\n")
+		brewCmd := exec.CommandContext(ctx, "brew", "install", "pulseaudio")
+		brewCmd.Stdout = os.Stdout
+		brewCmd.Stderr = os.Stderr
+		if err := brewCmd.Run(); err != nil {
+			return fmt.Errorf("failed to install PulseAudio: %w", err)
+		}
+		color.Printf("{green}✓{reset} PulseAudio installed\n")
+	}
+
+	// Create PulseAudio config directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	pulseConfigDir := filepath.Join(homeDir, ".config", "pulse")
+	if err := os.MkdirAll(pulseConfigDir, 0755); err != nil {
+		return fmt.Errorf("failed to create pulse config directory: %w", err)
+	}
+
+	// Write PulseAudio config for tunnel connection
+	// Get audio port from config (default 4713)
+	audioPort := 4713
+	if f.Config != nil && f.Config.AudioPort > 0 {
+		audioPort = f.Config.AudioPort
+	}
+
+	pulseConfig := fmt.Sprintf(`# L8s audio configuration
+# Connect to remote PulseAudio server via SSH tunnel
+load-module module-native-protocol-tcp
+set-default-sink tunnel-sink
+
+# Auto-connect to the tunneled audio server
+.ifexists module-tunnel-sink.so
+load-module module-tunnel-sink server=tcp:localhost:%d sink_name=l8s-remote
+.endif
+`, audioPort)
+
+	configPath := filepath.Join(pulseConfigDir, "default.pa")
+	if err := os.WriteFile(configPath, []byte(pulseConfig), 0644); err != nil {
+		return fmt.Errorf("failed to write PulseAudio config: %w", err)
+	}
+	color.Printf("{green}✓{reset} PulseAudio configured at %s\n", configPath)
+
+	color.Printf("\n{cyan}Next steps:{reset}\n")
+	color.Printf("1. Run {bold}l8s audio connect{reset} to start the audio tunnel\n")
+	color.Printf("2. Audio from containers will play through your Mac speakers\n")
+
+	return nil
+}
+
+// runAudioConnect starts the audio SSH tunnel to the remote host
+func (f *CommandFactory) runAudioConnect(ctx context.Context) error {
+	fmt.Println("Starting audio tunnel...")
+
+	// Check if tunnel is already running by checking control socket
+	controlPath := filepath.Join(os.Getenv("HOME"), ".ssh", "control-*@l8s-audio:*")
+	matches, _ := filepath.Glob(controlPath)
+	if len(matches) > 0 {
+		color.Printf("{yellow}!{reset} Audio tunnel already connected\n")
+		return nil
+	}
+
+	// Start SSH tunnel in background
+	// -N = no remote command, -f = background, l8s-audio = the SSH host config
+	sshCmd := exec.Command("ssh", "-N", "-f", "l8s-audio")
+	sshCmd.Stdout = os.Stdout
+	sshCmd.Stderr = os.Stderr
+
+	if err := sshCmd.Run(); err != nil {
+		return fmt.Errorf("failed to start audio tunnel: %w", err)
+	}
+
+	audioPort := 4713
+	if f.Config != nil && f.Config.AudioPort > 0 {
+		audioPort = f.Config.AudioPort
+	}
+
+	color.Printf("{green}✓{reset} Audio tunnel connected (localhost:%d → remote)\n", audioPort)
+	color.Printf("  Audio from containers will now play through your speakers\n")
+
+	return nil
+}
+
+// runAudioDisconnect stops the audio SSH tunnel
+func (f *CommandFactory) runAudioDisconnect(ctx context.Context) error {
+	fmt.Println("Stopping audio tunnel...")
+
+	// Use SSH control master to close the connection
+	// -O exit sends exit command to the master process
+	sshCmd := exec.Command("ssh", "-O", "exit", "l8s-audio")
+	output, err := sshCmd.CombinedOutput()
+
+	if err != nil {
+		// Check if it just wasn't running
+		if strings.Contains(string(output), "No such file") ||
+			strings.Contains(string(output), "not running") ||
+			strings.Contains(string(output), "No ControlPath") {
+			color.Printf("{yellow}!{reset} Audio tunnel was not running\n")
+			return nil
+		}
+		return fmt.Errorf("failed to stop audio tunnel: %w", err)
+	}
+
+	color.Printf("{green}✓{reset} Audio tunnel disconnected\n")
+	return nil
+}
+
+// runAudioStatus shows the current audio tunnel status
+func (f *CommandFactory) runAudioStatus(ctx context.Context) error {
+	fmt.Println("Audio Configuration Status")
+	fmt.Println("══════════════════════════")
+	fmt.Println()
+
+	// Show configuration
+	audioPort := 4713
+	audioSocketPath := "/run/user/1000/pulse"
+	audioEnabled := true
+
+	if f.Config != nil {
+		if f.Config.AudioPort > 0 {
+			audioPort = f.Config.AudioPort
+		}
+		if f.Config.AudioSocketPath != "" {
+			audioSocketPath = f.Config.AudioSocketPath
+		}
+		audioEnabled = f.Config.AudioEnabled
+	}
+
+	// Configuration section
+	color.Printf("{bold}Configuration:{reset}\n")
+	if audioEnabled {
+		color.Printf("  Enabled:     {green}yes{reset}\n")
+	} else {
+		color.Printf("  Enabled:     {yellow}no{reset}\n")
+	}
+	color.Printf("  Audio Port:  %d\n", audioPort)
+	color.Printf("  Socket Path: %s\n", audioSocketPath)
+	fmt.Println()
+
+	// Tunnel status section
+	color.Printf("{bold}SSH Tunnel:{reset}\n")
+	if isAudioTunnelConnected() {
+		color.Printf("  Status:      {green}✓ connected{reset}\n")
+		color.Printf("  Local:       localhost:%d\n", audioPort)
+	} else {
+		color.Printf("  Status:      {yellow}✗ disconnected{reset}\n")
+		color.Printf("  Run:         {bold}l8s audio connect{reset} to start\n")
+	}
+	fmt.Println()
+
+	// Mac setup check (only on macOS)
+	if runtime.GOOS == "darwin" {
+		color.Printf("{bold}Mac Setup:{reset}\n")
+		if _, err := exec.LookPath("pulseaudio"); err == nil {
+			color.Printf("  PulseAudio:  {green}✓ installed{reset}\n")
+		} else {
+			color.Printf("  PulseAudio:  {yellow}✗ not installed{reset}\n")
+			color.Printf("  Run:         {bold}l8s audio setup-mac{reset} to install\n")
+		}
+		fmt.Println()
+	}
+
+	// Quick help
+	color.Printf("{bold}Commands:{reset}\n")
+	color.Printf("  l8s audio connect      Start audio tunnel\n")
+	color.Printf("  l8s audio disconnect   Stop audio tunnel\n")
+	color.Printf("  l8s audio setup-host   Configure remote host\n")
+	color.Printf("  l8s audio setup-mac    Install PulseAudio on Mac\n")
+
+	return nil
 }

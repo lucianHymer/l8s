@@ -66,6 +66,44 @@ func GenerateAuthorizedKeys(publicKey string) string {
 	return "# Managed by l8s\n" + publicKey + "\n"
 }
 
+// GenerateAudioSSHConfigEntry creates an SSH config for audio tunneling
+// This is separate from container SSH configs and connects to the host with LocalForward
+func GenerateAudioSSHConfigEntry(remoteHost, remoteUser string, audioPort int, knownHostsPath string) string {
+	// If knownHostsPath is provided, use strict checking with CA
+	if knownHostsPath != "" {
+		return fmt.Sprintf(`Host l8s-audio
+    HostName %s
+    User %s
+    LocalForward %d localhost:%d
+    StrictHostKeyChecking yes
+    UserKnownHostsFile %s
+    ControlMaster auto
+    ControlPath ~/.ssh/control-%%r@%%h:%%p
+    ControlPersist 1h
+    ServerAliveInterval 30
+    ServerAliveCountMax 6
+    ConnectTimeout 10
+    TCPKeepAlive yes
+`, remoteHost, remoteUser, audioPort, audioPort, knownHostsPath)
+	}
+
+	// Fallback to insecure mode if no CA configured
+	return fmt.Sprintf(`Host l8s-audio
+    HostName %s
+    User %s
+    LocalForward %d localhost:%d
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    ControlMaster auto
+    ControlPath ~/.ssh/control-%%r@%%h:%%p
+    ControlPersist 1h
+    ServerAliveInterval 30
+    ServerAliveCountMax 6
+    ConnectTimeout 10
+    TCPKeepAlive yes
+`, remoteHost, remoteUser, audioPort, audioPort)
+}
+
 // GenerateSSHConfigEntry generates an SSH config entry for a container
 func GenerateSSHConfigEntry(containerName string, sshPort int, containerUser, prefix, remoteHost string, knownHostsPath string) string {
 	// Remove prefix from container name for the host alias

@@ -74,6 +74,10 @@ RUN dnf update -y && \
         fd-find \
         fzf \
         bat \
+        # Audio support (PulseAudio client libraries)
+        alsa-lib \
+        alsa-plugins-pulseaudio \
+        pulseaudio-libs \
         sudo \
         passwd \
         which \

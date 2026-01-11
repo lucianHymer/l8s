@@ -98,6 +98,11 @@ func (m *Manager) CreateContainer(ctx context.Context, name, sshKey string) (*Co
 		},
 	}
 
+	// Add audio socket path if audio is enabled
+	if m.config.AudioEnabled && m.config.AudioSocketPath != "" {
+		config.AudioSocketPath = m.config.AudioSocketPath
+	}
+
 	// Create the container
 	container, err := m.client.CreateContainer(ctx, config)
 	if err != nil {
@@ -855,11 +860,16 @@ func (m *Manager) RebuildContainer(ctx context.Context, name string) error {
 		ContainerUser: m.config.ContainerUser,
 		Labels:        labels,
 	}
-	
+
+	// Add audio socket path if audio is enabled
+	if m.config.AudioEnabled && m.config.AudioSocketPath != "" {
+		config.AudioSocketPath = m.config.AudioSocketPath
+	}
+
 	if _, err := m.client.CreateContainer(ctx, config); err != nil {
 		return fmt.Errorf("failed to create container: %w", err)
 	}
-	
+
 	// Step 5: Set up SSH certificates before starting
 	// SSH certificates are in /etc/ssh which is NOT a persistent volume,
 	// so we need to regenerate them after recreating the container

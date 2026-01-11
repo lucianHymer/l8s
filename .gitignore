@@ -1,2 +1,4 @@
 coverage.out
 build
+pkg/embed/dotfiles/.config/github-copilot/
+pkg/embed/dotfiles/.npm/
