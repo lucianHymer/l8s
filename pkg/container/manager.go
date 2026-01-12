@@ -91,16 +91,13 @@ func (m *Manager) CreateContainer(ctx context.Context, name, sshKey string) (*Co
 		SSHPublicKey:  sshKey,
 		BaseImage:     m.config.BaseImage,
 		ContainerUser: m.config.ContainerUser,
+		AudioEnabled:  m.config.AudioEnabled,
+		AudioPort:     m.config.AudioPort,
 		Labels: map[string]string{
 			LabelManaged:   "true",
 			LabelSSHPort:   fmt.Sprintf("%d", sshPort),
 			LabelWebPort:   fmt.Sprintf("%d", webPort),
 		},
-	}
-
-	// Add audio socket path if audio is enabled
-	if m.config.AudioEnabled && m.config.AudioSocketPath != "" {
-		config.AudioSocketPath = m.config.AudioSocketPath
 	}
 
 	// Create the container
@@ -858,12 +855,9 @@ func (m *Manager) RebuildContainer(ctx context.Context, name string) error {
 		SSHPublicKey:  "",       // Empty - authorized_keys already exists in volume
 		BaseImage:     m.config.BaseImage,  // Use current configured image
 		ContainerUser: m.config.ContainerUser,
+		AudioEnabled:  m.config.AudioEnabled,
+		AudioPort:     m.config.AudioPort,
 		Labels:        labels,
-	}
-
-	// Add audio socket path if audio is enabled
-	if m.config.AudioEnabled && m.config.AudioSocketPath != "" {
-		config.AudioSocketPath = m.config.AudioSocketPath
 	}
 
 	if _, err := m.client.CreateContainer(ctx, config); err != nil {

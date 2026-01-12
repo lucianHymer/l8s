@@ -35,12 +35,11 @@ type Config struct {
 	KnownHostsPath   string `yaml:"known_hosts_path,omitempty"`
 	
 	// Shared settings
-	SSHPortStart    int    `yaml:"ssh_port_start"`
-	WebPortStart    int    `yaml:"web_port_start"`
-	AudioEnabled    bool   `yaml:"audio_enabled"`       // Whether audio support is enabled
-	AudioPort       int    `yaml:"audio_port"`          // PulseAudio TCP port (default 4713)
-	AudioSocketPath string `yaml:"audio_socket_path"`   // Path to PulseAudio socket on host
-	BaseImage       string `yaml:"base_image"`
+	SSHPortStart int    `yaml:"ssh_port_start"`
+	WebPortStart int    `yaml:"web_port_start"`
+	AudioEnabled bool   `yaml:"audio_enabled"` // Whether audio support is enabled
+	AudioPort    int    `yaml:"audio_port"`    // PulseAudio TCP port (default 4713)
+	BaseImage    string `yaml:"base_image"`
 	ContainerPrefix string `yaml:"container_prefix"`
 	ContainerUser   string `yaml:"container_user"`
 	SSHPublicKey    string `yaml:"ssh_public_key"`
@@ -58,12 +57,11 @@ func DefaultConfig() *Config {
 		SSHKeyPath:       "",
 		
 		// Shared defaults
-		SSHPortStart:    2200,
-		WebPortStart:    3000,
-		AudioEnabled:    true,
-		AudioPort:       4713,
-		AudioSocketPath: "/run/user/1000/pulse",
-		BaseImage:       "localhost/l8s-fedora:latest",
+		SSHPortStart: 2200,
+		WebPortStart: 3000,
+		AudioEnabled: true,
+		AudioPort:    4713,
+		BaseImage:    "localhost/l8s-fedora:latest",
 		ContainerPrefix: "dev",
 		SSHPublicKey:    "", // Empty means auto-detect
 		ContainerUser:   "dev",

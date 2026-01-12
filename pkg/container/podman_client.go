@@ -23,7 +23,6 @@ import (
 	"github.com/containers/podman/v5/pkg/specgen"
 	"github.com/containers/podman/v5/pkg/api/handlers"
 	dockerContainer "github.com/docker/docker/api/types/container"
-	spec "github.com/opencontainers/runtime-spec/specs-go"
 	"l8s/pkg/config"
 	"l8s/pkg/embed"
 )
@@ -222,25 +221,16 @@ func (c *RealPodmanClient) CreateContainer(ctx context.Context, config Container
 		},
 	}
 
-	// Add audio socket bind mount if configured
-	if config.AudioSocketPath != "" {
-		s.Mounts = append(s.Mounts, spec.Mount{
-			Type:        "bind",
-			Source:      config.AudioSocketPath,
-			Destination: config.AudioSocketPath,
-			Options:     []string{"rbind"},
-		})
-	}
-
 	// Set environment variables
 	s.Env = map[string]string{
 		"USER": config.ContainerUser,
 		"HOME": fmt.Sprintf("/home/%s", config.ContainerUser),
 	}
 
-	// Add PulseAudio server environment variable if audio is configured
-	if config.AudioSocketPath != "" {
-		s.Env["PULSE_SERVER"] = fmt.Sprintf("unix:%s/native", config.AudioSocketPath)
+	// Audio uses TCP tunnel via SSH RemoteForward, not Unix socket
+	// Container connects to host gateway which tunnels to Mac's PulseAudio
+	if config.AudioEnabled {
+		s.Env["PULSE_SERVER"] = fmt.Sprintf("tcp:host.containers.internal:%d", config.AudioPort)
 	}
 
 	// Set command to run SSH daemon

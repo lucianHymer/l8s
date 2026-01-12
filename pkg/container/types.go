@@ -17,14 +17,15 @@ type Container struct {
 
 // ContainerConfig holds configuration for creating a container
 type ContainerConfig struct {
-	Name            string
-	SSHPort         int
-	WebPort         int
-	SSHPublicKey    string
-	BaseImage       string
-	ContainerUser   string
-	Labels          map[string]string
-	AudioSocketPath string // Path to PulseAudio socket for audio support
+	Name          string
+	SSHPort       int
+	WebPort       int
+	SSHPublicKey  string
+	BaseImage     string
+	ContainerUser string
+	Labels        map[string]string
+	AudioEnabled  bool // Whether audio tunneling is enabled
+	AudioPort     int  // Port for audio tunnel (default 4713)
 }
 
 // PodmanClient defines the interface for Podman operations
@@ -44,10 +45,10 @@ type PodmanClient interface {
 
 // Config holds configuration for the container manager
 type Config struct {
-	SSHPortStart     int
-	WebPortStart     int
-	AudioEnabled     bool
-	AudioSocketPath  string
+	SSHPortStart int
+	WebPortStart int
+	AudioEnabled bool
+	AudioPort    int
 	BaseImage        string
 	ContainerPrefix  string
 	ContainerUser    string

@@ -67,16 +67,19 @@ func GenerateAuthorizedKeys(publicKey string) string {
 }
 
 // GenerateAudioSSHConfigEntry creates an SSH config for audio tunneling
-// This is separate from container SSH configs and connects to the host with LocalForward
+// Uses RemoteForward so host/containers can send audio to Mac's PulseAudio server
 func GenerateAudioSSHConfigEntry(remoteHost, remoteUser string, audioPort int, knownHostsPath string) string {
-	// If knownHostsPath is provided, use strict checking with CA
+	// Audio connects to the HOST (not containers), so we need to use both:
+	// - ~/.ssh/known_hosts for the host itself
+	// - L8s CA known_hosts for any container references
+	// Use accept-new to auto-accept first connection to the host
 	if knownHostsPath != "" {
 		return fmt.Sprintf(`Host l8s-audio
     HostName %s
     User %s
-    LocalForward %d localhost:%d
-    StrictHostKeyChecking yes
-    UserKnownHostsFile %s
+    RemoteForward %d localhost:%d
+    StrictHostKeyChecking accept-new
+    UserKnownHostsFile ~/.ssh/known_hosts %s
     ControlMaster auto
     ControlPath ~/.ssh/control-%%r@%%h:%%p
     ControlPersist 1h
@@ -91,7 +94,7 @@ func GenerateAudioSSHConfigEntry(remoteHost, remoteUser string, audioPort int, k
 	return fmt.Sprintf(`Host l8s-audio
     HostName %s
     User %s
-    LocalForward %d localhost:%d
+    RemoteForward %d localhost:%d
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
     ControlMaster auto

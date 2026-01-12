@@ -67,7 +67,6 @@ container_user: "lucian"
 				WebPortStart:    3000,
 				AudioEnabled:    true,
 				AudioPort:       4713,
-				AudioSocketPath: "/run/user/1000/pulse",
 				BaseImage:       "localhost/custom-l8s:v2",
 				ContainerPrefix: "work",
 				SSHPublicKey:    filepath.Join(home, ".ssh/custom_key.pub"),
@@ -124,7 +123,6 @@ container_user: "developer"
 				WebPortStart:    3000, // default
 				AudioEnabled:    true, // default
 				AudioPort:       4713, // default
-				AudioSocketPath: "/run/user/1000/pulse", // default
 				BaseImage:       "localhost/l8s-fedora:latest", // default
 				ContainerPrefix: "dev", // default
 				SSHPublicKey:    "", // default
@@ -165,7 +163,6 @@ container_prefix: "test"
 				WebPortStart:    3000,
 				AudioEnabled:    true,
 				AudioPort:       4713,
-				AudioSocketPath: "/run/user/1000/pulse",
 				BaseImage:       "localhost/l8s-fedora:latest",
 				ContainerPrefix: "test",
 				SSHPublicKey:    "",
