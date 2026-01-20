@@ -1,0 +1,7 @@
+# Route ALSA through PulseAudio for audio tunnel support
+pcm.!default {
+    type pulse
+}
+ctl.!default {
+    type pulse
+}

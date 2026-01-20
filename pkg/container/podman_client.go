@@ -227,6 +227,12 @@ func (c *RealPodmanClient) CreateContainer(ctx context.Context, config Container
 		"HOME": fmt.Sprintf("/home/%s", config.ContainerUser),
 	}
 
+	// Audio uses TCP tunnel via SSH RemoteForward, not Unix socket
+	// Container connects to host gateway which tunnels to Mac's PulseAudio
+	if config.AudioEnabled {
+		s.Env["PULSE_SERVER"] = fmt.Sprintf("tcp:host.containers.internal:%d", config.AudioPort)
+	}
+
 	// Set command to run SSH daemon
 	s.Command = []string{"/usr/sbin/sshd", "-D"}
 

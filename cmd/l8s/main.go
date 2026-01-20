@@ -73,6 +73,7 @@ accessible via SSH using key-based authentication.`,
 		factory.StatusCmd(),
 		factory.ConnectionCmd(),
 		factory.InstallZSHPluginCmd(),
+		factory.AudioCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

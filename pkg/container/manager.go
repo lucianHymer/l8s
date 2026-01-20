@@ -91,6 +91,8 @@ func (m *Manager) CreateContainer(ctx context.Context, name, sshKey string) (*Co
 		SSHPublicKey:  sshKey,
 		BaseImage:     m.config.BaseImage,
 		ContainerUser: m.config.ContainerUser,
+		AudioEnabled:  m.config.AudioEnabled,
+		AudioPort:     m.config.AudioPort,
 		Labels: map[string]string{
 			LabelManaged:   "true",
 			LabelSSHPort:   fmt.Sprintf("%d", sshPort),
@@ -853,13 +855,15 @@ func (m *Manager) RebuildContainer(ctx context.Context, name string) error {
 		SSHPublicKey:  "",       // Empty - authorized_keys already exists in volume
 		BaseImage:     m.config.BaseImage,  // Use current configured image
 		ContainerUser: m.config.ContainerUser,
+		AudioEnabled:  m.config.AudioEnabled,
+		AudioPort:     m.config.AudioPort,
 		Labels:        labels,
 	}
-	
+
 	if _, err := m.client.CreateContainer(ctx, config); err != nil {
 		return fmt.Errorf("failed to create container: %w", err)
 	}
-	
+
 	// Step 5: Set up SSH certificates before starting
 	// SSH certificates are in /etc/ssh which is NOT a persistent volume,
 	// so we need to regenerate them after recreating the container

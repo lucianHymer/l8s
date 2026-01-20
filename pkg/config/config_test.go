@@ -65,6 +65,8 @@ container_user: "lucian"
 				SSHKeyPath:      filepath.Join(home, ".ssh/id_ed25519"), // will be expanded
 				SSHPortStart:    2300,
 				WebPortStart:    3000,
+				AudioEnabled:    true,
+				AudioPort:       4713,
 				BaseImage:       "localhost/custom-l8s:v2",
 				ContainerPrefix: "work",
 				SSHPublicKey:    filepath.Join(home, ".ssh/custom_key.pub"),
@@ -119,6 +121,8 @@ container_user: "developer"
 				SSHKeyPath:      "", // no default set
 				SSHPortStart:    2200, // default
 				WebPortStart:    3000, // default
+				AudioEnabled:    true, // default
+				AudioPort:       4713, // default
 				BaseImage:       "localhost/l8s-fedora:latest", // default
 				ContainerPrefix: "dev", // default
 				SSHPublicKey:    "", // default
@@ -157,6 +161,8 @@ container_prefix: "test"
 				SSHKeyPath:      "",
 				SSHPortStart:    2200,
 				WebPortStart:    3000,
+				AudioEnabled:    true,
+				AudioPort:       4713,
 				BaseImage:       "localhost/l8s-fedora:latest",
 				ContainerPrefix: "test",
 				SSHPublicKey:    "",

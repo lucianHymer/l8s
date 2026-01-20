@@ -52,6 +52,10 @@ setopt HIST_FIND_NO_DUPS
 export GO111MODULE=on
 export GOPROXY=https://proxy.golang.org,direct
 
+# Audio: Send to Mac via SSH tunnel (host.containers.internal = host's localhost)
+# Only set if not already defined (allows override)
+export PULSE_SERVER=${PULSE_SERVER:-tcp:host.containers.internal:4713}
+
 # Path additions
 export PATH=$HOME/.local/bin:$PATH:/usr/local/go/bin:$HOME/go/bin
 

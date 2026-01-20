@@ -74,6 +74,11 @@ RUN dnf update -y && \
         fd-find \
         fzf \
         bat \
+        alsa-lib \
+        alsa-utils \
+        alsa-plugins-pulseaudio \
+        pulseaudio-libs \
+        pulseaudio-utils \
         sudo \
         passwd \
         which \

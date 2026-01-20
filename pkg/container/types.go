@@ -24,6 +24,8 @@ type ContainerConfig struct {
 	BaseImage     string
 	ContainerUser string
 	Labels        map[string]string
+	AudioEnabled  bool // Whether audio tunneling is enabled
+	AudioPort     int  // Port for audio tunnel (default 4713)
 }
 
 // PodmanClient defines the interface for Podman operations
@@ -43,8 +45,10 @@ type PodmanClient interface {
 
 // Config holds configuration for the container manager
 type Config struct {
-	SSHPortStart     int
-	WebPortStart     int
+	SSHPortStart int
+	WebPortStart int
+	AudioEnabled bool
+	AudioPort    int
 	BaseImage        string
 	ContainerPrefix  string
 	ContainerUser    string
